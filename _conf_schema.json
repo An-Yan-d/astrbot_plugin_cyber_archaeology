@@ -1,0 +1,17 @@
+{
+  "ollama_api_url": {
+    "type": "string",
+    "description": "Ollama服务地址",
+    "default": "http://localhost:11434"
+  },
+  "embed_model": {
+    "type": "string",
+    "description": "Embedding模型名称",
+    "default": "bge-m3"
+  },
+  "top_k": {
+    "type": "int",
+    "description": "返回结果数量",
+    "default": 5
+  }
+}

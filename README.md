@@ -1,8 +1,10 @@
-# helloworld
+# CyberArchaeology
 
-AstrBot 插件模板
+AstrBot 插件
 
-A template plugin for AstrBot plugin feature
+## ollama部署embedding模型
+
+docker部署方案参见[yaml文件](https://github.com/An-Yan-d/astrbot_plugin_cyber_archaeology/blob/master/compose.yaml)
 
 # 支持
 
