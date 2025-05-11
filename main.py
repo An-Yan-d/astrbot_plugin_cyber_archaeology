@@ -21,7 +21,7 @@ class ChatHistory(Base):
     embedding = Column(Text)  # 存储JSON格式的embedding
 
 
-@register("astrbot_plugin_cyber_archaeology", "AnYan", "本插件利用embedding，根据描述查询意思相符的历史信息。", "1.2")
+@register("astrbot_plugin_cyber_archaeology", "AnYan", "本插件利用embedding，根据描述查询意思相符的历史信息。", "1.3")
 class QQArchaeology(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
@@ -101,7 +101,8 @@ class QQArchaeology(Star):
             similarity = np.dot(query_vec, db_vec) / (
                     np.linalg.norm(query_vec) * np.linalg.norm(db_vec)
             )
-            results.append((similarity, record))
+            if similarity>self.config["threshold"]:
+                results.append((similarity, record))
 
         # 排序并取前K个
         results.sort(reverse=True, key=lambda x: x[0])
@@ -207,3 +208,49 @@ class QQArchaeology(Star):
         for unified_msg_origin, session in self.sessions.items():
             session.close()
         self.sessions.clear()
+
+    @filter.command_group("cyber_archaeology",alias={'ca'})
+    def cyber_archaeology(self):
+        pass
+
+
+    @filter.permission_type(filter.PermissionType.ADMIN)
+    @cyber_archaeology.command("clear_all", alias={'清空所有记录'})
+    async def clear_all_command(self, event: AstrMessageEvent):
+        """清空所有群聊记录 示例：/clear_all"""
+        import shutil
+        try:
+            # 关闭所有现存会话
+            for session in self.sessions.values():
+                session.close()
+            self.sessions.clear()
+
+            # 删除整个数据库目录
+            if os.path.exists(self._db_path):
+                shutil.rmtree(self._db_path)
+                logger.info(f"已删除数据库目录: {self._db_path}")
+
+            # 重建目录
+            os.makedirs(self._db_path, exist_ok=True)
+
+            yield event.plain_result("已清空所有群聊的历史记录")
+        except Exception as e:
+            logger.error(f"清空所有记录失败: {str(e)}")
+            yield event.plain_result("清空操作失败，请检查日志")
+
+    @filter.command("clear_current", alias={'清空本群记录'})
+    @cyber_archaeology.permission_type(filter.PermissionType.ADMIN)
+    async def clear_current_command(self, event: AstrMessageEvent):
+        """清空当前群聊记录 示例：/clear_current"""
+        try:
+            session = self.get_session(event.unified_msg_origin)
+
+            # 删除当前群所有记录
+            session.query(ChatHistory).delete()
+            session.commit()
+
+            yield event.plain_result("本群历史记录已清空")
+        except Exception as e:
+            logger.error(f"清空本群记录失败: {str(e)}")
+            session.rollback()
+            yield event.plain_result("清空操作失败，请检查日志")
