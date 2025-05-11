@@ -16,7 +16,7 @@ Base = declarative_base()
 class ChatHistory(Base):
     __tablename__ = 'chat_history'
     id = Column(Integer, primary_key=True)
-    group_id = Column(String(64))
+    unified_msg_origin = Column(String(64))
     message_id = Column(Text)
     embedding = Column(Text)  # 存储JSON格式的embedding
 
@@ -30,9 +30,9 @@ class QQArchaeology(Star):
         self.sessions ={}
 
 
-    def _init_db(self, group_id: str):
+    def _init_db(self, unified_msg_origin: str):
         # 按群号创建独立数据库文件
-        db_path = os.path.join(self._db_path, f"{group_id}.db")
+        db_path = os.path.join(self._db_path, f"{unified_msg_origin}.db")
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
 
         # 创建新引擎并初始化表结构[1,2](@ref)
@@ -41,13 +41,13 @@ class QQArchaeology(Star):
             Base.metadata.create_all(engine)
         return engine
 
-    def get_session(self, group_id: str):
+    def get_session(self, unified_msg_origin: str):
         """获取指定群组的数据库会话"""
-        if group_id not in self.sessions:
-            engine = self._init_db(group_id)
+        if unified_msg_origin not in self.sessions:
+            engine = self._init_db(unified_msg_origin)
             Session = sessionmaker(bind=engine)
-            self.sessions[group_id] = Session()
-        return self.sessions[group_id]
+            self.sessions[unified_msg_origin] = Session()
+        return self.sessions[unified_msg_origin]
 
     async def get_embedding(self, text: str) -> List[float]:
         """调用Ollama获取embedding（异步版本）"""
@@ -76,8 +76,8 @@ class QQArchaeology(Star):
     @filter.command("search",alias={'考古'})
     async def search_command(self, event: AstrMessageEvent, query: str):
         """搜索历史记录 示例：/search 关键词"""
-        group_id = event.get_group_id()
-        session = self.get_session(group_id)  # 获取当前群的会话
+        unified_msg_origin = event.unified_msg_origin
+        session = self.get_session(unified_msg_origin)  # 获取当前群的会话
 
         if not query:
             yield event.plain_result("请输入搜索内容")
@@ -152,8 +152,8 @@ class QQArchaeology(Star):
     async def save_history(self, event: AstrMessageEvent):
         """保存群聊历史记录"""
         try:
-            group_id = event.get_group_id()
-            session = self.get_session(group_id)  # 获取对应群组的会话
+            unified_msg_origin = event.unified_msg_origin
+            session = self.get_session(unified_msg_origin)  # 获取对应群组的会话
 
 
             # 获取消息文本
@@ -171,7 +171,7 @@ class QQArchaeology(Star):
 
             # ...原有处理逻辑...
             new_record = ChatHistory(
-                group_id=group_id,
+                unified_msg_origin=unified_msg_origin,
                 message_id=event.message_obj.message_id,
                 embedding=json.dumps(embedding)
             )
@@ -183,6 +183,6 @@ class QQArchaeology(Star):
 
     async def terminate(self):
         """关闭所有数据库连接"""
-        for group_id, session in self.sessions.items():
+        for unified_msg_origin, session in self.sessions.items():
             session.close()
         self.sessions.clear()
