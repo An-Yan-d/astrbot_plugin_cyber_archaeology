@@ -1,4 +1,3 @@
 httpx>=0.25.0
 numpy
-sentence-transformers
 sqlalchemy

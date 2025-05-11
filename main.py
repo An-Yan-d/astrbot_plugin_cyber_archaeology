@@ -1,6 +1,5 @@
 import os
 import json
-import asyncio
 import numpy as np
 from typing import List
 from sqlalchemy import create_engine, Column, Integer, String, Text
