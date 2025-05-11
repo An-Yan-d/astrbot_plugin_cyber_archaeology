@@ -125,19 +125,18 @@ class QQArchaeology(Star):
                     {
                         "type": "reply",
                         "data": {
-                            "message_id": rec[1].message_id
-                        }
+                                    "id": rec[1].message_id
+                                }
                     },
                     {
                         "type": "text",
                         "data": {
-                            "message_id": rec[1].message_id,
                             "text": f"第{k}相似历史记录"
                         }
                     }
             ]
             }
-            msg = await client.api.call_action("get_msg", **payloads)
+            msg = await client.api.call_action("send_group_msg", **payloads)
 
 
 
