@@ -52,6 +52,7 @@ class QQArchaeology(Star):
                         "prompt": text
                     }
                 )
+                print(resp)
                 resp.raise_for_status()  # 自动处理4xx/5xx状态码
                 return resp.json()["embedding"]
         except httpx.HTTPStatusError as e:
@@ -80,6 +81,8 @@ class QQArchaeology(Star):
         results = []
         query_vec = np.array(query_embedding)
         for record in self.session.query(ChatHistory).all():
+            if not record.embedding:
+                continue
             db_vec = np.array(json.loads(record.embedding))
             similarity = np.dot(query_vec, db_vec) / (
                     np.linalg.norm(query_vec) * np.linalg.norm(db_vec)
@@ -145,6 +148,10 @@ class QQArchaeology(Star):
 
             # 生成embedding
             embedding = await self.get_embedding(message)
+
+            if not embedding:
+                logger.error("Embedding服务不可用")
+                return
 
             # 存储记录
             new_record = ChatHistory(
