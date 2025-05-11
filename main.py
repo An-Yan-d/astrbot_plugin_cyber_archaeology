@@ -238,8 +238,8 @@ class QQArchaeology(Star):
             logger.error(f"清空所有记录失败: {str(e)}")
             yield event.plain_result("清空操作失败，请检查日志")
 
-    @filter.command("clear_current", alias={'清空本群记录'})
-    @cyber_archaeology.permission_type(filter.PermissionType.ADMIN)
+    @filter.permission_type(filter.PermissionType.ADMIN)
+    @cyber_archaeology.command("clear_current", alias={'清空本群记录'})
     async def clear_current_command(self, event: AstrMessageEvent):
         """清空当前群聊记录 示例：/clear_current"""
         try:
