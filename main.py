@@ -6,7 +6,7 @@ from typing import List
 from sqlalchemy import create_engine, Column, Integer, String, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from astrbot.api import AstrBotConfig
+from astrbot.api import AstrBotConfig, logger
 from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
 from astrbot.api.star import Context, Star, register
 from astrbot.api.message_components import Plain
@@ -56,13 +56,13 @@ class QQArchaeology(Star):
                 resp.raise_for_status()  # 自动处理4xx/5xx状态码
                 return resp.json()["embedding"]
         except httpx.HTTPStatusError as e:
-            self.logger.error(f"API错误: {e.response.status_code} - {e.response.text}")
+            logger.error(f"API错误: {e.response.status_code} - {e.response.text}")
         except httpx.RequestError as e:
-            self.logger.error(f"网络请求失败: {str(e)}")
+            logger.error(f"网络请求失败: {str(e)}")
         except json.JSONDecodeError:
-            self.logger.error("响应数据解析失败")
+            logger.error("响应数据解析失败")
         except Exception as e:
-            self.logger.error(f"未知错误: {str(e)}")
+            logger.error(f"未知错误: {str(e)}")
 
     @filter.command("search",alias={'考古'})
     async def search_command(self, event: AstrMessageEvent, query: str):
@@ -156,7 +156,7 @@ class QQArchaeology(Star):
             self.session.add(new_record)
             self.session.commit()
         except Exception as e:
-            self.logger.error(f"保存记录失败: {str(e)}")
+            logger.error(f"保存记录失败: {str(e)}")
             self.session.rollback()
 
     async def terminate(self):
