@@ -131,14 +131,14 @@ class QQArchaeology(Star):
                     {
                         "type": "text",
                         "data": {
-                            "text": f"第{k}相似历史记录"
+                            "text": f"第{k+1}相似历史记录"
                         }
                     }
             ]
             }
             msg = await client.api.call_action("send_group_msg", **payloads)
 
-
+        event.stop_event()
 
             # 构造获取群消息历史的请求参数
             # payloads = {
