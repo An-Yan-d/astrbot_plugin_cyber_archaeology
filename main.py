@@ -149,7 +149,7 @@ class QQArchaeology(Star):
             # 存储记录
             new_record = ChatHistory(
                 group_id=event.get_group_id(),
-                message_id=event.message_id,
+                message_id=event.message_obj.message_id,
                 embedding=json.dumps(embedding)
             )
             self.session.add(new_record)
