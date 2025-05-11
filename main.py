@@ -78,6 +78,7 @@ class QQArchaeology(Star):
         """搜索历史记录 示例：/search 关键词"""
         unified_msg_origin = event.unified_msg_origin
         session = self.get_session(unified_msg_origin)  # 获取当前群的会话
+        group_id=event.get_group_id()
 
         if not query:
             yield event.plain_result("请输入搜索内容")
@@ -112,40 +113,62 @@ class QQArchaeology(Star):
             return
 
 
+
         from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
         assert isinstance(event, AiocqhttpMessageEvent)
         client = event.bot
 
-        for rec in  top_results:
-            # 构造获取群消息历史的请求参数
-            payloads = {
-                "message_id": rec[1].message_id,
+        for k,rec in  enumerate(top_results):
+            payloads ={
+                "group_id": group_id,
+                "message": [
+                    {
+                        "type": "reply",
+                        "data": {
+                                    "id": rec[1].message_id
+                                }
+                    },
+                    {
+                        "type": "text",
+                        "data": {
+                            "text": f"第{k}相似历史记录"
+                        }
+                    }
+            ]
             }
-
-            # 调用API获取群聊历史消息
             msg = await client.api.call_action("get_msg", **payloads)
 
-            # 处理消息历史记录，对其格式化
-            message_text = ""
-            messagechain = msg.get("message", [])
-            for part in messagechain:
-                if part['type'] == 'text':
-                    message_text += part['data']['text'].strip() + " "
-                elif part['type'] == 'json':  # 处理JSON格式的分享卡片等特殊消息
-                    try:
-                        json_content = json.loads(part['data']['data'])
-                        if 'desc' in json_content.get('meta', {}).get('news', {}):
-                            message_text += f"[分享内容]{json_content['meta']['news']['desc']} "
-                    except:
-                        pass
 
-                # 表情消息处理
-                elif part['type'] == 'face':
-                    message_text += "[表情] "
 
-                # 生成标准化的消息记录格式
-            if message_text:
-                yield event.plain_result(message_text)
+            # 构造获取群消息历史的请求参数
+            # payloads = {
+            #     "message_id": rec[1].message_id,
+            # }
+            #
+            # # 调用API获取群聊历史消息
+            # msg = await client.api.call_action("get_msg", **payloads)
+            #
+            # # 处理消息历史记录，对其格式化
+            # message_text = ""
+            # messagechain = msg.get("message", [])
+            # for part in messagechain:
+            #     if part['type'] == 'text':
+            #         message_text += part['data']['text'].strip() + " "
+            #     elif part['type'] == 'json':  # 处理JSON格式的分享卡片等特殊消息
+            #         try:
+            #             json_content = json.loads(part['data']['data'])
+            #             if 'desc' in json_content.get('meta', {}).get('news', {}):
+            #                 message_text += f"[分享内容]{json_content['meta']['news']['desc']} "
+            #         except:
+            #             pass
+            #
+            #     # 表情消息处理
+            #     elif part['type'] == 'face':
+            #         message_text += "[表情] "
+            #
+            #     # 生成标准化的消息记录格式
+            # if message_text:
+            #     yield event.plain_result(message_text)
 
 
     @filter.event_message_type(filter.EventMessageType.GROUP_MESSAGE)
@@ -154,7 +177,6 @@ class QQArchaeology(Star):
         try:
             unified_msg_origin = event.unified_msg_origin
             session = self.get_session(unified_msg_origin)  # 获取对应群组的会话
-
 
             # 获取消息文本
             message = event.message_str
