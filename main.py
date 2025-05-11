@@ -125,8 +125,8 @@ class QQArchaeology(Star):
                     {
                         "type": "reply",
                         "data": {
-                                    "message_id": rec[1].message_id
-                                }
+                            "message_id": rec[1].message_id
+                        }
                     },
                     {
                         "type": "text",
