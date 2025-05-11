@@ -15,7 +15,7 @@
     "default": 5
   },
     "threshold": {
-    "type": "flout",
+    "type": "float",
     "description": "返回结果数量",
     "default": 0.5
   }
