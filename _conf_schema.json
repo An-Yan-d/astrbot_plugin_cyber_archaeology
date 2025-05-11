@@ -16,7 +16,12 @@
   },
     "threshold": {
     "type": "float",
-    "description": "返回结果数量",
-    "default": 0.5
+    "description": "返回threshold",
+    "default": 0.6
+  },
+  "cluster_threshold": {
+    "type": "float",
+    "description": "cluster threshold",
+    "default": 0.4
   }
 }
