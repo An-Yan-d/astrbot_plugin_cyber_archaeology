@@ -21,7 +21,7 @@ class ChatHistory(Base):
     embedding = Column(Text)  # 存储JSON格式的embedding
 
 
-@register("astrbot_plugin_cyber_archaeology", "AnYan", "本插件利用embedding，根据描述查询意思相符的历史信息。", "1.1")
+@register("astrbot_plugin_cyber_archaeology", "AnYan", "本插件利用embedding，根据描述查询意思相符的历史信息。", "1.2")
 class QQArchaeology(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
@@ -111,7 +111,6 @@ class QQArchaeology(Star):
         if not top_results:
             yield event.plain_result("未找到相关记录")
             return
-
 
 
         from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
