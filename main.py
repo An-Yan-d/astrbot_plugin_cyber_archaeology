@@ -131,7 +131,7 @@ class QQArchaeology(Star):
                     {
                         "type": "text",
                         "data": {
-                            "message_id": rec[1].message_id
+                            "message_id": rec[1].message_id,
                             "text": f"第{k}相似历史记录"
                         }
                     }
