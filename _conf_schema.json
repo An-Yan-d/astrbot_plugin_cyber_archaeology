@@ -7,7 +7,7 @@
   "embed_model": {
     "type": "string",
     "description": "Embedding模型名称",
-    "default": "bge-m3"
+    "default": "nomic-embed-text"
   },
   "top_k": {
     "type": "int",
