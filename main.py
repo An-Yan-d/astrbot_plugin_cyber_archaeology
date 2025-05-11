@@ -132,7 +132,7 @@ class QQArchaeology(Star):
                 yield event.plain_result(message_text)
 
 
-    @filter.event_message_type("group_message")
+    @filter.event_message_type(filter.EventMessageType.GROUP_MESSAGE)
     async def save_history(self, event: AstrMessageEvent):
         """保存群聊历史记录"""
         try:
