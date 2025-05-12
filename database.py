@@ -26,7 +26,7 @@ class Database:
 
     async def get_session(self, unified_msg_origin: str):
         """获取指定群组的数据库会话"""
-        session_id=self.config["embedding_conf"]["whichprovider"]+":"+unified_msg_origin
+        session_id=":".join([self.config["embedding_conf"]["whichprovider"],self.config["embedding_conf"]["embed_model"],unified_msg_origin])
         if session_id not in self.sessions:
             engine = await self._init_db(session_id)
             Session = sessionmaker(bind=engine)
