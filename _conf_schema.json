@@ -1,27 +1,61 @@
 {
-  "ollama_api_url": {
-    "type": "string",
-    "description": "Ollama服务地址",
-    "default": "http://localhost:11434"
+  "embedding_conf":{
+    "description": "embedding配置",
+    "type": "object",
+    "items":{
+       "whichprovider": {
+          "type": "string",
+          "description": "选择调用embedding的provider",
+          "options": ["ollama", "openai","baidu"]
+        },
+       "api_url": {
+          "type": "string",
+          "description": "在线api服务地址",
+          "options": ["https://api.openai.com/v1/embeddings", "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/embeddings"]
+        },
+        "api_key": {
+          "type": "string",
+          "description": "api_key"
+        },
+        "secret_key": {
+          "type": "string",
+          "description": "secret_key",
+          "hint": "在调用百度应用使用"
+        },
+        "ollama_api_url": {
+          "type": "string",
+          "description": "Ollama服务地址",
+          "hint": "当whichprovider为ollama时可用",
+          "default": "http://localhost:11434"
+        },
+        "embed_model": {
+          "type": "string",
+          "description": "Embedding模型名称",
+          "hint": "Ollama: quentinz/bge-small-zh-v1.5, bge-m3\r Baidu: embedding-v1, bge_large_zh\r"
+        }
+        }
   },
-  "embed_model": {
-    "type": "string",
-    "description": "Embedding模型名称",
-    "default": "quentinz/bge-small-zh-v1.5"
-  },
-  "top_k": {
-    "type": "int",
-    "description": "返回结果数量",
-    "default": 5
-  },
-    "threshold": {
-    "type": "float",
-    "description": "小于本值视作匹配成功",
-    "default": 0.65
-  },
-  "cluster_threshold": {
-    "type": "float",
-    "description": "每一类最低相似程度",
-    "default": 0.45
+  "plugin_conf":{
+    "type": "object",
+    "description": "插件配置",
+    "items":{
+      "top_k": {
+        "type": "int",
+        "description": "返回结果数量",
+        "default": 5
+      },
+        "threshold": {
+        "type": "float",
+        "description": "同义相似阈值",
+        "hint": "小于本值视作意思相近,范围为0~1",
+        "default": 0.5
+      },
+      "cluster_threshold": {
+        "type": "float",
+        "description": "类相似阈值",
+        "hint": "每一类最低相似程度,范围为0~1",
+        "default": 0.45
+      }
+    }
   }
 }
