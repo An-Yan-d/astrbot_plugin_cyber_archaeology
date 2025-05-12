@@ -31,7 +31,7 @@
         "embed_model": {
           "type": "string",
           "description": "Embedding模型名称",
-          "options": ["quentinz/bge-small-zh-v1.5", "bge-m3","embedding-v1"]
+          "hint": "ollama:quentinz/bge-small-zh-v1.5, bge-m3\n baidu:embedding-v1, bge-large-zh\n"
         }
         }
   },
