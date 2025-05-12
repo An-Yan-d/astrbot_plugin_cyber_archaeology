@@ -2,10 +2,11 @@ import os
 import json
 import numpy as np
 from typing import List
-import datetime
+
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+import astrbot.api.message_components as Comp
 from astrbot.api import AstrBotConfig, logger
 from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
 from astrbot.api.star import Context, Star, register
@@ -13,19 +14,21 @@ from astrbot.api.message_components import Plain
 
 Base = declarative_base()
 
+def cal_similarity(v1, v2):
+    return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
 
 class ClusterCenter(Base):
     __tablename__ = 'cluster_centers'
     id = Column(Integer, primary_key=True)
+    initial_embedding = Column(Text)
     center_embedding = Column(Text)  # 中心向量
     member_count = Column(Integer)   # 成员数量
-    last_updated = Column(DateTime)  # 最后更新时间
+
 
 class ChatHistory(Base):
     __tablename__ = 'chat_history'
     id = Column(Integer, primary_key=True)
     cluster_id = Column(Integer, ForeignKey('cluster_centers.id'))  # 所属簇ID
-    unified_msg_origin = Column(String(64))
     message_id = Column(Text)
     embedding = Column(Text)  # 存储JSON格式的embedding
 
@@ -47,7 +50,7 @@ class ClusterManager:
         best_cluster = None
         for cluster in clusters:
             center_vec = np.array(json.loads(cluster.center_embedding))
-            similarity = np.dot(query_vec, center_vec) / (np.linalg.norm(query_vec) * np.linalg.norm(center_vec))
+            similarity = cal_similarity(query_vec, center_vec)
             if similarity > max_similarity:
                 max_similarity = similarity
                 best_cluster = cluster
@@ -60,10 +63,42 @@ class ClusterManager:
         new_center = (old_center * cluster.member_count + np.array(new_embedding)) / (cluster.member_count + 1)
         cluster.center_embedding = json.dumps(new_center.tolist())
         cluster.member_count += 1
-        cluster.last_updated = datetime.now()
 
 
-@register("astrbot_plugin_cyber_archaeology", "AnYan", "本插件利用embedding，根据描述查询意思相符的历史信息。", "2.1")
+        initial_center=json.loads(cluster.initial_embedding)
+        if cal_similarity(np.array(initial_center), new_center)<self.config["cluster_threshold"]:
+
+            logger.info("test")
+            cluster1= await self.new_cluster(initial_center)
+            cluster2= await self.new_cluster(new_center.tolist())
+
+            records = self.session.query(ChatHistory).filter_by(cluster_id=cluster.id).all()
+            for record in records:
+                vec = np.array(json.loads(record.embedding))
+                similarity1 = cal_similarity(np.array(initial_center), vec)
+                similarity2 = cal_similarity(new_center, vec)
+                if similarity1 > similarity2:
+                    record.cluster_id=cluster1.id
+                    await self.update_cluster_center(cluster1,json.loads(record.embedding))
+                else:
+                    record.cluster_id = cluster2.id
+                    await self.update_cluster_center(cluster2, json.loads(record.embedding))
+            self.session.delete(cluster)
+
+
+    async def new_cluster(self,new_embedding: List[float]):
+        new_cluster = ClusterCenter(
+            initial_embedding = json.dumps(new_embedding),
+            center_embedding = json.dumps(new_embedding),
+            member_count = 1
+        )
+        self.session.add(new_cluster)
+        self.session.commit()
+        return  new_cluster
+
+
+
+@register("astrbot_plugin_cyber_archaeology", "AnYan", "本插件利用embedding，根据描述查询意思相符的历史信息。", "2.2")
 class QQArchaeology(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
@@ -142,7 +177,7 @@ class QQArchaeology(Star):
         query_vec = np.array(query_embedding)
         for cluster in clusters:
             center_vec = np.array(json.loads(cluster.center_embedding))
-            similarity = np.dot(query_vec, center_vec) / (np.linalg.norm(query_vec) * np.linalg.norm(center_vec))
+            similarity = cal_similarity(query_vec, center_vec)
             if similarity > self.config["cluster_threshold"]:
                 candidate_clusters.append(cluster)
 
@@ -152,7 +187,7 @@ class QQArchaeology(Star):
             records = session.query(ChatHistory).filter_by(cluster_id=cluster.id).all()
             for record in records:
                 db_vec = np.array(json.loads(record.embedding))
-                similarity = np.dot(query_vec, db_vec) / (np.linalg.norm(query_vec) * np.linalg.norm(db_vec))
+                similarity = cal_similarity(query_vec, db_vec)
                 if similarity > self.config["threshold"]:
                     results.append((similarity, record))
 
@@ -231,10 +266,14 @@ class QQArchaeology(Star):
             session = self.get_session(unified_msg_origin)  # 获取对应群组的会话
 
             # 获取消息文本
-            message = event.message_str
+            messagechain = event.message_obj.message
 
+            message=" ".join([comp.text for comp in messagechain if isinstance(comp, Plain)])
+
+            # logger.info(" ".join([comp.text for comp in messagechain if isinstance(comp, Plain)]))
             # 跳过空消息和命令消息和过短对话
-            if not message or message.startswith("/") or len(message)<3:
+            if (not message) or message.startswith("/") or len(message)<3:
+                logger.info("跳过")
                 return
 
             # 生成embedding
@@ -250,32 +289,24 @@ class QQArchaeology(Star):
                 # 加入现有簇
                 new_record = ChatHistory(
                     cluster_id=nearest_cluster.id,
-                    unified_msg_origin=unified_msg_origin,
                     message_id=event.message_obj.message_id,
                     embedding=json.dumps(embedding)
                 )
                 await cluster_manager.update_cluster_center(nearest_cluster, embedding)
             else:
                 # 创建新簇
-                new_cluster = ClusterCenter(
-                    center_embedding=json.dumps(embedding),
-                    member_count=1,
-                    last_updated=datetime.now()
-                )
-                session.add(new_cluster)
-                session.commit()
+                new_cluster= await cluster_manager.new_cluster(embedding)
                 new_record = ChatHistory(
                     cluster_id=new_cluster.id,
-                    unified_msg_origin=unified_msg_origin,
                     message_id=event.message_obj.message_id,
                     embedding=json.dumps(embedding)
                 )
-
             session.add(new_record)
             session.commit()
         except Exception as e:
             logger.error(f"保存记录失败: {str(e)}")
-            self.session.rollback()
+            unified_msg_origin = event.unified_msg_origin
+            self.get_session(unified_msg_origin).rollback()
 
     async def terminate(self):
         """关闭所有数据库连接"""
