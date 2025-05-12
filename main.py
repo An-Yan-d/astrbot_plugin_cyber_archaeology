@@ -322,7 +322,7 @@ class QQArchaeology(Star):
     @filter.permission_type(filter.PermissionType.ADMIN)
     @cyber_archaeology.command("clear_all", alias={'清空所有记录'})
     async def clear_all_command(self, event: AstrMessageEvent):
-        """清空所有群聊记录 示例：/clear_all"""
+        """清空所有群聊记录 示例：/ca clear_all"""
         import shutil
         try:
             # 关闭所有现存会话
@@ -346,7 +346,7 @@ class QQArchaeology(Star):
     @filter.permission_type(filter.PermissionType.ADMIN)
     @cyber_archaeology.command("clear", alias={'清空本群记录'})
     async def clear_current_command(self, event: AstrMessageEvent):
-        """清空当前群聊记录 示例：/clear"""
+        """清空当前群聊记录 示例：/ca clear"""
         try:
             session = self.get_session(event.unified_msg_origin)
 
@@ -364,7 +364,7 @@ class QQArchaeology(Star):
     @filter.permission_type(filter.PermissionType.ADMIN)
     @cyber_archaeology.command("load_history")
     async def load_history_command(self, event: AstrMessageEvent, count: int = None, seq: int = 0):
-        """读取插件未安装前bot所保存的历史数据当前群聊记录 示例：/load_history 20 <初始消息序号，上一条为0>"""
+        """读取插件未安装前bot所保存的历史数据当前群聊记录 示例：/ca load_history <读取消息条数:int> [初始消息序号:int]"""
         try:
             session = self.get_session(event.unified_msg_origin)
 
@@ -414,12 +414,13 @@ class QQArchaeology(Star):
                 chat_lines[message_id]=message_text
 
 
-
+                # 获取embedding
                 embedding = await self.get_embedding(message_text)
 
                 if not embedding:
                     return
 
+                # 获取选取最近的簇，如果没有则创建一个新簇
                 cluster_manager = ClusterManager(session, self.config)
                 nearest_cluster = await cluster_manager.find_nearest_cluster(embedding)
 

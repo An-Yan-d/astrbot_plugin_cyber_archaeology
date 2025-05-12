@@ -1,11 +1,106 @@
-# CyberArchaeology
 
-AstrBot 插件
+# CyberArchaeology 赛博考古插件
 
-## ollama部署embedding模型
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![AstrBot](https://img.shields.io/badge/AstrBot-3.5%2B-orange.svg)](https://github.com/Soulter/AstrBot) ![Version](https://img.shields.io/badge/Version-2.4-success) [![GitHub](https://img.shields.io/badge/author-AnYan-blue)](https://github.com/An-Yan-d)
 
-docker部署方案参见[yaml文件](https://github.com/An-Yan-d/astrbot_plugin_cyber_archaeology/blob/master/compose.yaml)
+基于embedding技术的群聊记忆挖掘工具，实现历史消息的智能回溯与聚合分析。通过Ollama生成语义向量，构建动态聚类算法，打造群组专属的数字记忆库。
+仅支持aiocqhttp。
 
-# 支持
+## 🌟 核心功能
 
-[帮助文档](https://astrbot.app)
+1. **实时语义归档** - 自动分析每条消息的深层语义特征
+2. **动态记忆聚类** - 采用增量式加权平均算法动态调整簇中心
+3. **多维模糊检索** - 基于语义相似度实现模糊语义检索
+4. **分布式记忆库** - 每个群组独立数据库隔离存储（`data/plugins/astrbot_plugin_cyber_archaeology/db`）
+
+## ⚙️ 部署准备
+### 插件安装
+astrbot插件市场搜索astrbot_plugin_cyber_archaeology，点击安装，等待完成即可。
+
+
+### embedding 模型部署
+
+#### 本地Ollama服务部署
+
+```yaml
+version: '3.5'
+services:
+  ollama:
+    restart: always
+    container_name: 11434-ollama
+    image: ollama/ollama
+    ports:
+      - 11434:11434
+    environment:
+      - OLLAMA_MODELS=/data/models
+    volumes:
+      - /your/path/to/models/:/data/models #你保存模型的位置，需要自己修改
+    # 命令启动 serve
+    command: serve
+```
+
+**下载embedding模型**
+
+```bash
+ollama pull your_model
+```
+
+以下是根据搜索结果整理的推荐模型信息表，补充了功能描述和模型大小：
+
+| 推荐模型                       | 功能描述                       | 大小     |
+|----------------------------|----------------------------|--------|
+| nomic-embed-text        | 仅英文，ollama排名第一             | 274 MB |
+| quentinz/bge-small-zh-v1.5 | 针对中文优化的轻量级文本嵌入模型           | 48 MB  |
+| bge-m3                  | 多语言（支持100+语言）、多粒度模型，支持密集/稀疏/多向量检索 | 1.2 GB |
+
+
+
+#### 插件配置
+请在astrbot面板配置，插件管理 -> astrbot_plugin_cyber_archaeology -> 操作 -> 插件配置
+配置Ollama服务地址 (ollama_api_url)和Embedding模型名称 (embed_model)两项
+
+
+## 🛠️ 使用指南
+### 基础命令
+| 命令格式                      | 功能描述                     | 示例                     |
+|----------------------------|--------------------------|------------------------|
+| `/search <关键词>`          | 语义相似度检索               | `/search 项目进度`       |
+| `/ca clear_all`            | 清空所有群组记录(管理员权限)   | `/ca clear_all`         |
+| `/ca clear`                | 清空当前群组记录(管理员权限)   | `/ca clear`             |
+
+### 高级功能
+```bash
+批量导入历史消息
+/ca load_history <导入条数> [起始消息序号]
+
+示例：导入最近100条历史消息
+/ca load_history 100
+
+示例：从第500条消息开始导入200条
+/ca load_history 200 500
+```
+
+## 🧠 实现原理
+1. **语义向量化**  
+   通过Ollama API将文本转换为语义向量
+
+2. **动态聚类算法**  
+   ```python
+   # 增量式簇中心更新公式
+   new_center = (old_center * N + new_vector) / (N + 1)
+   # 当初始簇心与当前中心相似度过低时时触发分裂机制（默认为0.45）
+   ```
+
+3. **二级检索架构**  
+   - 第一阶段：簇中心快速筛选（相似度>0.45）
+   - 第二阶段：簇内精确匹配（相似度>0.65），输出top_k的匹配消息
+
+## ⚠️ 注意事项
+1. 首次使用需配置模型名称与embedding服务地址
+2. 建议执行`/ca load_history <读取消息条数:int> [初始消息序号:int]`导入插件安装前的历史消息
+3. 消息存储路径：`data/plugins/astrbot_plugin_cyber_archaeology/db/*.db`
+
+
+## 📜 开源协议
+本项目采用 Apache-2.0 协议开源，基于 [AstrBot](https://github.com/AstrBotDevs/AstrBot) 插件体系开发。
+
