@@ -7,7 +7,7 @@
   "embed_model": {
     "type": "string",
     "description": "Embedding模型名称",
-    "default": "nomic-embed-text"
+    "default": "quentinz/bge-small-zh-v1.5"
   },
   "top_k": {
     "type": "int",
@@ -16,7 +16,12 @@
   },
     "threshold": {
     "type": "float",
-    "description": "返回结果数量",
-    "default": 0.5
+    "description": "小于本值视作匹配成功",
+    "default": 0.65
+  },
+  "cluster_threshold": {
+    "type": "float",
+    "description": "每一类最低相似程度",
+    "default": 0.45
   }
 }
