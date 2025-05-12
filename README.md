@@ -1,7 +1,7 @@
 
 # CyberArchaeology 赛博考古插件
 
-[![License](https://img.shields.io/badge/License-AGPL%20v3-orange.svg)](https://opensource.org/licenses/AGPL-3.0) [![AstrBot](https://img.shields.io/badge/AstrBot-3.5%2B-blue.svg)](https://github.com/Soulter/AstrBot) ![Version](https://img.shields.io/badge/Version-2.4-success) [![GitHub](https://img.shields.io/badge/author-AnYan-blue)](https://github.com/An-Yan-d)
+[![License](https://img.shields.io/badge/License-AGPL%20v3-orange.svg)](https://opensource.org/licenses/AGPL-3.0) [![AstrBot](https://img.shields.io/badge/AstrBot-3.5%2B-blue.svg)](https://github.com/Soulter/AstrBot) ![Version](https://img.shields.io/badge/Version-2.4-success) [![GitHub](https://img.shields.io/badge/author-AnYan-blue)](https://github.com/TheAnyan)
 
 基于embedding技术的群聊记忆挖掘工具，实现历史消息的智能回溯与聚合分析。通过Ollama生成语义向量，构建动态聚类算法，打造群组专属的数字记忆库。
 仅支持aiocqhttp。
