@@ -1,7 +1,7 @@
 
 # CyberArchaeology 赛博考古插件
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![AstrBot](https://img.shields.io/badge/AstrBot-3.5%2B-orange.svg)](https://github.com/Soulter/AstrBot) ![Version](https://img.shields.io/badge/Version-2.4-success) [![GitHub](https://img.shields.io/badge/author-AnYan-blue)](https://github.com/An-Yan-d)
+[![License](https://img.shields.io/badge/License-AGPL%20v3-orange.svg)](https://opensource.org/licenses/AGPL-3.0) [![AstrBot](https://img.shields.io/badge/AstrBot-3.5%2B-blue.svg)](https://github.com/Soulter/AstrBot) ![Version](https://img.shields.io/badge/Version-2.4-success) [![GitHub](https://img.shields.io/badge/author-AnYan-blue)](https://github.com/An-Yan-d)
 
 基于embedding技术的群聊记忆挖掘工具，实现历史消息的智能回溯与聚合分析。通过Ollama生成语义向量，构建动态聚类算法，打造群组专属的数字记忆库。
 仅支持aiocqhttp。
@@ -47,10 +47,10 @@ ollama pull your_model
 
 以下是根据搜索结果整理的推荐模型信息表，补充了功能描述和模型大小：
 
-| 推荐模型                       | 功能描述                       | 大小     |
-|----------------------------|----------------------------|--------|
-| nomic-embed-text        | 仅英文，ollama排名第一             | 274 MB |
-| quentinz/bge-small-zh-v1.5 | 针对中文优化的轻量级文本嵌入模型           | 48 MB  |
+| 推荐模型                       | 功能描述                             | 大小     |
+|----------------------------|----------------------------------|--------|
+| nomic-embed-text        | 仅英文，Ollama排名第一                   | 274 MB |
+| quentinz/bge-small-zh-v1.5 | 针对中文优化的轻量级文本嵌入模型                 | 48 MB  |
 | bge-m3                  | 多语言（支持100+语言）、多粒度模型，支持密集/稀疏/多向量检索 | 1.2 GB |
 
 
@@ -102,5 +102,5 @@ ollama pull your_model
 
 
 ## 📜 开源协议
-本项目采用 Apache-2.0 协议开源，基于 [AstrBot](https://github.com/AstrBotDevs/AstrBot) 插件体系开发。
+本项目采用 AGPLv3 协议开源，基于 [AstrBot](https://github.com/AstrBotDevs/AstrBot) 插件体系开发。
 
