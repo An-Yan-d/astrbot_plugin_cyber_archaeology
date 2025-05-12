@@ -1,5 +1,6 @@
 {
   "embedding_conf":{
+    "description": "embedding配置",
     "type": "object",
     "items":{
        "whichprovider": {
@@ -12,15 +13,14 @@
           "description": "在线api服务地址",
           "options": ["https://api.openai.com/v1/embeddings", "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/embeddings"]
         },
-       "api_key": {
+        "api_key": {
           "type": "string",
-         "description": "api_key"
-       },
-      "secret_key": {
+          "description": "api_key"
+        },
+        "secret_key": {
           "type": "string",
           "description": "secret_key",
           "hint": "在调用百度应用使用"
-      }
         },
         "ollama_api_url": {
           "type": "string",
@@ -31,11 +31,13 @@
         "embed_model": {
           "type": "string",
           "description": "Embedding模型名称",
-          "default": "quentinz/bge-small-zh-v1.5"
+          "options": ["quentinz/bge-small-zh-v1.5", "bge-m3","embedding-v1"]
+        }
         }
   },
   "plugin_conf":{
     "type": "object",
+    "description": "插件配置",
     "items":{
       "top_k": {
         "type": "int",
