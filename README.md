@@ -3,6 +3,9 @@
 
 [![License](https://img.shields.io/badge/License-AGPL%20v3-orange.svg)](https://opensource.org/licenses/AGPL-3.0) [![AstrBot](https://img.shields.io/badge/AstrBot-3.5%2B-blue.svg)](https://github.com/Soulter/AstrBot) ![Version](https://img.shields.io/badge/Version-3.0-success) [![GitHub](https://img.shields.io/badge/author-AnYan-blue)](https://github.com/TheAnyan)
 
+[![Moe Counter](https://count.getloli.com/@cyberArchaeology?name=cyberArchaeology&theme=nixietube-1&padding=7&offset=0&align=top&scale=1&pixelated=1&darkmode=auto)](https://github.com/TheAnyan/astrbot_plugin_cyber_archaeology)
+
+
 基于embedding技术的群聊记忆挖掘工具，实现历史消息的智能回溯与聚合分析。通过Ollama生成语义向量，构建动态聚类算法，打造群组专属的数字记忆库。
 仅支持aiocqhttp。
 
@@ -13,7 +16,7 @@
 1. **实时语义归档** - 自动分析每条消息的深层语义特征
 2. **动态记忆聚类** - 采用增量式加权平均算法动态调整簇中心
 3. **多维模糊检索** - 基于语义相似度实现模糊语义检索
-4. **分布式记忆库** - 每个群组独立数据库隔离存储（`data/plugins/astrbot_plugin_cyber_archaeology/db`）
+4. **分布式记忆库** - 每个群组独立数据库隔离存储（`data/astrbot_plugin_cyber_archaeology/db`）
 
 ## ⚙️ 部署准备
 ### 插件安装
@@ -21,6 +24,37 @@ astrbot插件市场搜索astrbot_plugin_cyber_archaeology，点击安装，等�
 
 
 ### embedding 模型部署
+
+#### 在线Ollama服务部署（百度）
+
+请参考百度[鉴权方式文档](https://cloud.baidu.com/doc/WENXINWORKSHOP/s/Dlkm79mnx#%E5%9F%BA%E4%BA%8E%E5%AE%89%E5%85%A8%E8%AE%A4%E8%AF%81aksk%E7%AD%BE%E5%90%8D%E8%AE%A1%E7%AE%97%E8%AE%A4%E8%AF%81)
+
+通过[创建应用](https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application/v1)获取api_key和secret_key
+
+> [!NOTE]
+> 
+> 请使用v1版本接口，如果在v2版本，请点击切换至旧版
+> 创建应用时请勾选你需要的模型，模型信息可以参考[百度千帆向量Embeddings](https://cloud.baidu.com/doc/WENXINWORKSHOP/s/alj562vvu)
+
+**embedding配置**
+
+请在astrbot面板配置，插件管理 -> astrbot_plugin_cyber_archaeology -> 操作 -> 插件配置
+配置调用embedding的provider (whichprovider)，在线api服务地址 (api_url)，api_key，secret_key和Embedding模型名称 (embed_model)五项
+
+
+#### 在线Ollama服务部署（openai）
+> [!NOTE]
+> 
+> 由于作者没有办法访问openai，因此没有测试。
+
+
+**embedding配置**
+
+请在astrbot面板配置，插件管理 -> astrbot_plugin_cyber_archaeology -> 操作 -> 插件配置
+配置调用embedding的provider (whichprovider)，在线api服务地址 (api_url)，api_key和Embedding模型名称 (embed_model)四项
+
+
+
 
 #### 本地Ollama服务部署
 
@@ -57,9 +91,10 @@ ollama pull your_model
 
 
 
-#### 插件配置
+**embedding配置**
+
 请在astrbot面板配置，插件管理 -> astrbot_plugin_cyber_archaeology -> 操作 -> 插件配置
-配置Ollama服务地址 (ollama_api_url)和Embedding模型名称 (embed_model)两项
+配置embedding的provider (whichprovider)，Ollama服务地址 (ollama_api_url)和Embedding模型名称 (embed_model)三项
 
 
 ## 🛠️ 使用指南
@@ -98,11 +133,11 @@ ollama pull your_model
    - 第二阶段：簇内精确匹配（相似度>0.65），输出top_k的匹配消息
 
 ## ⚠️ 注意事项
-1. 首次使用需配置模型名称与embedding服务地址
+1. 首次使用需部署embedding模型并进行相应配置
 2. 建议执行`/ca load_history <读取消息条数:int> [初始消息序号:int]`导入插件安装前的历史消息
-3. 消息存储路径：`data/plugins/astrbot_plugin_cyber_archaeology/db/*.db`
+3. 消息存储路径：`data/astrbot_plugin_cyber_archaeology/db/*.db`
+4. 任何问题都可以通过issue反馈
 
 
 ## 📜 开源协议
 本项目采用 AGPLv3 协议开源，基于 [AstrBot](https://github.com/AstrBotDevs/AstrBot) 插件体系开发。
-
