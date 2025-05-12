@@ -1,7 +1,7 @@
 import json
 import numpy as np
 from typing import List
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey,exists
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from .database import Base
@@ -86,3 +86,9 @@ class ClusterManager:
         self.session.add(new_cluster)
         self.session.commit()
         return  new_cluster
+
+    async def is_repeated_message(self,message_id):
+
+        return self.session.query(
+            exists().where(ChatHistory.message_id == message_id)  # message_id 是 Text 类型，需用字符串比较
+        ).scalar()

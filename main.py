@@ -196,6 +196,7 @@ class QQArchaeology(Star):
     async def load_history_command(self, event: AstrMessageEvent, count: int = None, seq: int = 0):
         """读取插件未安装前bot所保存的历史数据当前群聊记录 示例：/ca load_history <读取消息条数:int> [初始消息序号:int]"""
         session = await self.database.get_session(event.unified_msg_origin)
+        cluster_manager = ClusterManager(session, self.config)
         try:
             from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
             assert isinstance(event, AiocqhttpMessageEvent)
@@ -230,6 +231,9 @@ class QQArchaeology(Star):
                 message_id = msg['message_id']
                 if myid == sender.get('user_id', ""):
                     continue
+
+                if await cluster_manager.is_repeated_message(message_id):
+                    continue
                 # 提取所有文本内容（兼容多段多类型文本消息）
                 message_text_chain = []
                 for part in msg['message']:
@@ -250,7 +254,7 @@ class QQArchaeology(Star):
                     return
 
                 # 获取选取最近的簇，如果没有则创建一个新簇
-                cluster_manager = ClusterManager(session, self.config)
+
                 nearest_cluster = await cluster_manager.find_nearest_cluster(embedding)
 
                 if nearest_cluster:
