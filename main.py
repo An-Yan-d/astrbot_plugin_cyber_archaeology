@@ -28,7 +28,7 @@ class QQArchaeology(Star):
     async def search_command(self, event: AstrMessageEvent, query: str):
         """搜索历史记录 示例：/search 关键词"""
         unified_msg_origin = event.unified_msg_origin
-        session = self.database.get_session(unified_msg_origin)  # 获取当前群的会话
+        session = await self.database.get_session(unified_msg_origin)  # 获取当前群的会话
         group_id=event.get_group_id()
 
         if not query:
@@ -106,9 +106,9 @@ class QQArchaeology(Star):
     @filter.event_message_type(filter.EventMessageType.GROUP_MESSAGE)
     async def save_history(self, event: AstrMessageEvent):
         """保存群聊历史记录"""
+        unified_msg_origin = event.unified_msg_origin
+        session = await self.database.get_session(unified_msg_origin)  # 获取对应群组的会话
         try:
-            unified_msg_origin = event.unified_msg_origin
-            session = self.database.get_session(unified_msg_origin)  # 获取对应群组的会话
 
             # 获取消息文本
             messagechain = event.message_obj.message
@@ -149,8 +149,7 @@ class QQArchaeology(Star):
             session.commit()
         except Exception as e:
             logger.error(f"保存记录失败: {str(e)}")
-            unified_msg_origin = event.unified_msg_origin
-            self.database.get_session(unified_msg_origin).rollback()
+            session.rollback()
 
     async def terminate(self):
         """关闭所有数据库连接"""
@@ -167,32 +166,19 @@ class QQArchaeology(Star):
     @cyber_archaeology.command("clear_all", alias={'清空所有记录'})
     async def clear_all_command(self, event: AstrMessageEvent):
         """清空所有群聊记录 示例：/ca clear_all"""
-        import shutil
         try:
-            # 关闭所有现存会话
-            for session in self.database.sessions.values():
-                session.close()
-            self.database.sessions.clear()
-
-            # 删除整个数据库目录
-            if os.path.exists(self._db_path):
-                shutil.rmtree(self._db_path)
-                logger.info(f"已删除数据库目录: {self._db_path}")
-
-            # 重建目录
-            os.makedirs(self._db_path, exist_ok=True)
-
-            yield event.plain_result("已清空所有群聊的历史记录")
+            yield await self.database.clear()
         except Exception as e:
             logger.error(f"清空所有记录失败: {str(e)}")
             yield event.plain_result("清空操作失败，请检查日志")
+
 
     @filter.permission_type(filter.PermissionType.ADMIN)
     @cyber_archaeology.command("clear", alias={'清空本群记录'})
     async def clear_current_command(self, event: AstrMessageEvent):
         """清空当前群聊记录 示例：/ca clear"""
+        session = await self.database.get_session(event.unified_msg_origin)
         try:
-            session = self.database.get_session(event.unified_msg_origin)
 
             # 删除当前群所有记录
             session.query(ChatHistory).delete()
@@ -202,16 +188,15 @@ class QQArchaeology(Star):
         except Exception as e:
             logger.error(f"清空本群记录失败: {str(e)}")
             unified_msg_origin = event.unified_msg_origin
-            self.database.get_session(unified_msg_origin).rollback()
+            session.rollback()
             yield event.plain_result("清空操作失败，请检查日志")
 
     @filter.permission_type(filter.PermissionType.ADMIN)
     @cyber_archaeology.command("load_history")
     async def load_history_command(self, event: AstrMessageEvent, count: int = None, seq: int = 0):
         """读取插件未安装前bot所保存的历史数据当前群聊记录 示例：/ca load_history <读取消息条数:int> [初始消息序号:int]"""
+        session = await self.database.get_session(event.unified_msg_origin)
         try:
-            session = self.database.get_session(event.unified_msg_origin)
-
             from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
             assert isinstance(event, AiocqhttpMessageEvent)
             client = event.bot
@@ -294,7 +279,7 @@ class QQArchaeology(Star):
         except Exception as e:
             logger.error(f"导入本群记录失败: {str(e)}")
             unified_msg_origin = event.unified_msg_origin
-            self.database.get_session(unified_msg_origin).rollback()
+            session.rollback()
             yield event.plain_result("导入本群记录失败，请检查日志")
 
 
