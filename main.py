@@ -6,10 +6,9 @@ from astrbot.api import AstrBotConfig, logger
 from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
 from astrbot.api.star import Context, Star, register
 from astrbot.api.message_components import Plain
-from .cluster_manager import ClusterCenter,ChatHistory,ClusterManager
-from .database import Database
+from .database_manger import DatabaseManager
 from .embedding_api import EmbeddingProvider
-from .utils import *
+
 
 
 
@@ -19,7 +18,10 @@ class QQArchaeology(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
         self.config = config
-        self.database = Database(config)
+
+        database_config={}
+        self.databaseManager =  DatabaseManager(database_config)
+
         self.embeddingProvider = EmbeddingProvider(config)
 
 
@@ -28,7 +30,7 @@ class QQArchaeology(Star):
     async def search_command(self, event: AstrMessageEvent, query: str):
         """搜索历史记录 示例：/search 关键词"""
         unified_msg_origin = event.unified_msg_origin
-        session = await self.database.get_session(unified_msg_origin)  # 获取当前群的会话
+        database = self.databaseManager.get_database(unified_msg_origin)  # 获取当前群的会话
         group_id=event.get_group_id()
 
         if not query:
@@ -41,33 +43,10 @@ class QQArchaeology(Star):
             yield event.plain_result("Embedding服务不可用")
             return
 
-        # 计算相似度
-        results = []
-        query_vec = np.array(query_embedding)
 
-        # 将查询范围限制在当前群数据库
-        candidate_clusters = []
-        clusters = session.query(ClusterCenter).all()
-        query_vec = np.array(query_embedding)
-        for cluster in clusters:
-            center_vec = np.array(json.loads(cluster.center_embedding))
-            similarity = cal_similarity(query_vec, center_vec)
-            if similarity > self.config["plugin_conf"]["cluster_threshold"]:
-                candidate_clusters.append(cluster)
-
-        # 第二阶段：在候选簇内精确搜索
-        results = []
-        for cluster in candidate_clusters:
-            records = session.query(ChatHistory).filter_by(cluster_id=cluster.id).all()
-            for record in records:
-                db_vec = np.array(json.loads(record.embedding))
-                similarity = cal_similarity(query_vec, db_vec)
-                if similarity > self.config["plugin_conf"]["threshold"]:
-                    results.append((similarity, record))
 
         # 排序并取前K个
-        results.sort(reverse=True, key=lambda x: x[0])
-        top_results = results[:self.config["plugin_conf"]["top_k"]]
+        top_results = database.similar_search(query_embedding,self.config["plugin_conf"]["top_k"])
 
         # 构造返回结果
         if not top_results:
@@ -79,14 +58,14 @@ class QQArchaeology(Star):
         assert isinstance(event, AiocqhttpMessageEvent)
         client = event.bot
 
-        for k,rec in  enumerate(top_results):
+        for k,message_id in  enumerate(top_results):
             payloads ={
                 "group_id": group_id,
                 "message": [
                     {
                         "type": "reply",
                         "data": {
-                                    "id": rec[1].message_id
+                                    "id":message_id
                                 }
                     },
                     {
@@ -97,7 +76,7 @@ class QQArchaeology(Star):
                     }
             ]
             }
-            msg = await client.api.call_action("send_group_msg", **payloads)
+            await client.api.call_action("send_group_msg", **payloads)
 
         event.stop_event()
 
@@ -107,7 +86,7 @@ class QQArchaeology(Star):
     async def save_history(self, event: AstrMessageEvent):
         """保存群聊历史记录"""
         unified_msg_origin = event.unified_msg_origin
-        session = await self.database.get_session(unified_msg_origin)  # 获取对应群组的会话
+        database = await self.databaseManager.get_database(unified_msg_origin)  # 获取对应群组的会话
         try:
 
             # 获取消息文本
@@ -125,37 +104,13 @@ class QQArchaeology(Star):
 
             if not embedding:
                 return
-
-            cluster_manager = ClusterManager(session,self.config)
-            nearest_cluster = await cluster_manager.find_nearest_cluster(embedding)
-
-            if nearest_cluster:
-                # 加入现有簇
-                new_record = ChatHistory(
-                    cluster_id=nearest_cluster.id,
-                    message_id=event.message_obj.message_id,
-                    embedding=json.dumps(embedding)
-                )
-                await cluster_manager.update_cluster_center(nearest_cluster, embedding)
-            else:
-                # 创建新簇
-                new_cluster= await cluster_manager.new_cluster(embedding)
-                new_record = ChatHistory(
-                    cluster_id=new_cluster.id,
-                    message_id=event.message_obj.message_id,
-                    embedding=json.dumps(embedding)
-                )
-            session.add(new_record)
-            session.commit()
+            database.add(event.message_obj.message_id,embedding)
         except Exception as e:
             logger.error(f"保存记录失败: {str(e)}")
-            session.rollback()
 
     async def terminate(self):
         """关闭所有数据库连接"""
-        for unified_msg_origin, session in self.database.sessions.items():
-            session.close()
-        self.database.sessions.clear()
+        self.databaseManager.clear()
 
     @filter.command_group("cyber_archaeology",alias={'ca'})
     def cyber_archaeology(self):
@@ -167,7 +122,8 @@ class QQArchaeology(Star):
     async def clear_all_command(self, event: AstrMessageEvent):
         """清空所有群聊记录 示例：/ca clear_all"""
         try:
-            yield await self.database.clear()
+            self.databaseManager.clear()
+            yield event.plain_result("所有群历史记录已清空")
         except Exception as e:
             logger.error(f"清空所有记录失败: {str(e)}")
             yield event.plain_result("清空操作失败，请检查日志")
@@ -177,26 +133,18 @@ class QQArchaeology(Star):
     @cyber_archaeology.command("clear", alias={'清空本群记录'})
     async def clear_current_command(self, event: AstrMessageEvent):
         """清空当前群聊记录 示例：/ca clear"""
-        session = await self.database.get_session(event.unified_msg_origin)
         try:
-
-            # 删除当前群所有记录
-            session.query(ChatHistory).delete()
-            session.commit()
-
+            self.databaseManager.remove_database(event.unified_msg_origin)
             yield event.plain_result("本群历史记录已清空")
         except Exception as e:
             logger.error(f"清空本群记录失败: {str(e)}")
-            unified_msg_origin = event.unified_msg_origin
-            session.rollback()
             yield event.plain_result("清空操作失败，请检查日志")
 
     @filter.permission_type(filter.PermissionType.ADMIN)
     @cyber_archaeology.command("load_history")
     async def load_history_command(self, event: AstrMessageEvent, count: int = None, seq: int = 0):
         """读取插件未安装前bot所保存的历史数据当前群聊记录 示例：/ca load_history <读取消息条数:int> [初始消息序号:int]"""
-        session = await self.database.get_session(event.unified_msg_origin)
-        cluster_manager = ClusterManager(session, self.config)
+        database = self.databaseManager.get_database(event.unified_msg_origin)
         try:
             from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
             assert isinstance(event, AiocqhttpMessageEvent)
@@ -255,35 +203,14 @@ class QQArchaeology(Star):
 
                 # 获取选取最近的簇，如果没有则创建一个新簇
 
-                nearest_cluster = await cluster_manager.find_nearest_cluster(embedding)
-
-                if nearest_cluster:
-                    # 加入现有簇
-                    new_record = ChatHistory(
-                        cluster_id=nearest_cluster.id,
-                        message_id=message_id,
-                        embedding=json.dumps(embedding)
-                    )
-                    await cluster_manager.update_cluster_center(nearest_cluster, embedding)
-                else:
-                    # 创建新簇
-                    new_cluster = await cluster_manager.new_cluster(embedding)
-                    new_record = ChatHistory(
-                        cluster_id=new_cluster.id,
-                        message_id=message_id,
-                        embedding=json.dumps(embedding)
-                    )
-                session.add(new_record)
+                database.add(message_id, embedding)
                 success_num += 1
                 if success_num%100==0:
                     logger.info(f"已成功导入{success_num}条历史消息")
-            session.commit()
 
             yield event.plain_result(f"成功导入{success_num}条本群历史记录")
         except Exception as e:
             logger.error(f"导入本群记录失败: {str(e)}")
-            unified_msg_origin = event.unified_msg_origin
-            session.rollback()
             yield event.plain_result("导入本群记录失败，请检查日志")
 
 

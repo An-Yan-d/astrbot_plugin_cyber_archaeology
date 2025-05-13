@@ -1,52 +1,172 @@
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey
-from sqlalchemy.orm import sessionmaker
-import os
-import shutil
+from pymilvus import connections, Collection, utility, FieldSchema, CollectionSchema, DataType
+from typing import List, Dict, Any
 
-Base = declarative_base()
+
 class Database:
-    def __init__(self,config):
-        self._db_path = os.path.join("data","astrbot_plugin_cyber_archaeology","db")
-        self.sessions ={}
+    def __init__(self,db_path,config):
+        self._db_path =db_path
         self.config=config
 
 
-    async def _init_db(self, session_id: str):
-        # 按群号创建独立数据库文件
-        db_path = os.path.join(self._db_path, f"{session_id}.db")
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    def add(self, message_id:str,embedding:List[float]) -> None:
+        """
+        添加新记录
+        :param record: 要添加的记录字典
+        :return: 插入记录的ID或插入结果
+        """
+        pass
 
-        # 创建新引擎并初始化表结构[1,2](@ref)
-        engine = create_engine(f'sqlite:///{db_path}')
-        if not os.path.exists(db_path):
-            Base.metadata.create_all(engine)
-        return engine
+    def clear(self) -> None:
+        """
+        根据ID删除记录
+        :param record_id: 要删除的记录ID
+        :return: 是否删除成功
+        """
+        pass
+
+    def search(self, message_id:str) -> List[Dict[str, Any]]:
+        """
+        根据条件搜索记录
+        :param manager_id: 搜索的
+        :return: 匹配的记录列表
+        """
+        pass
 
 
-    async def get_session(self, unified_msg_origin: str):
-        """获取指定群组的数据库会话"""
-        session_id="_".join([self.config["embedding_conf"]["whichprovider"].replace("/", "") ,self.config["embedding_conf"]["embed_model"].replace("/", "") ,unified_msg_origin.replace(":", "_")])
-        if session_id not in self.sessions:
-            engine = await self._init_db(session_id)
-            Session = sessionmaker(bind=engine)
-            self.sessions[session_id] = Session()
-        return self.sessions[session_id]
+    def similar_search(self, embedding:List[float],limits:int) -> List[str]:
+        """
+        根据条件搜索记录
+        :param embedding: 查询的消息embedding
+        :return: messager_id
+        """
+        pass
 
-    async def clear(self):
-        """清空所有群聊记录"""
-        # 关闭所有现存会话
-        for session in self.database.sessions.values():
-            session.close()
-        self.database.sessions.clear()
+    def exists(self, message_id: str) -> bool:
+        pass
 
-        # 删除整个数据库目录
-        if os.path.exists(self._db_path):
-            shutil.rmtree(self._db_path)
-            logger.info(f"已删除数据库目录: {self._db_path}")
 
-        # 重建目录
-        os.makedirs(self._db_path, exist_ok=True)
 
-        return event.plain_result("已清空所有群聊的历史记录")
+
+class MilvusDatabase(Database):
+    def __init__(self, db_path, config):
+        super().__init__(db_path, config)
+
+        # 从配置中提取Milvus连接参数
+        self.host = config.get("host", "localhost")
+        self.port = config.get("port", "19530")
+        self.user = config.get("user", "")
+        self.password = config.get("password", "")
+        self.collection_name = config.get("collection_name", "message_embeddings")
+        self.embedding_dim = config.get("embedding_dim", 768)
+
+        # 建立Milvus连接
+        connections.connect(
+            "default",
+            host=self.host,
+            port=self.port,
+            user=self.user,
+            password=self.password
+        )
+
+        # 初始化集合
+        self.collection = self._init_collection()
+
+        # 配置索引参数
+        self.index_params = config.get("index_params", {
+            "index_type": "IVF_FLAT",
+            "metric_type": "COSINE",
+            "params": {"nlist": 128}
+        })
+
+    def _init_collection(self):
+        # 创建集合（如果不存在）
+        if not utility.has_collection(self.collection_name):
+            # 定义字段模式
+            fields = [
+                FieldSchema(name="message_id", dtype=DataType.VARCHAR,
+                            is_primary=True, max_length=100),
+                FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR,
+                            dim=self.embedding_dim)
+            ]
+
+            # 创建集合模式
+            schema = CollectionSchema(fields, description="Message embeddings storage")
+
+            # 创建集合
+            collection = Collection(self.collection_name, schema)
+
+            # 创建索引
+            collection.create_index(
+                field_name="embedding",
+                index_params=self.index_params
+            )
+        else:
+            collection = Collection(self.collection_name)
+
+        collection.load()
+        return collection
+
+    def add(self, message_id: str, embedding: List[float]) -> None:
+        # 构造插入数据
+        data = [
+            [message_id],
+            [embedding]
+        ]
+
+        # 执行插入操作
+        self.collection.insert(data)
+        self.collection.flush()
+
+
+    def clear(self) -> None:
+        # 删除整个集合
+        utility.drop_collection(self.collection_name)
+        # 重新初始化集合
+        self.collection = self._init_collection()
+
+    def search(self, messager_id: str) -> str:
+        # 构建查询表达式
+        expr = f'message_id == "{messager_id}"'
+
+        # 执行查询
+        results = self.collection.query(
+            expr=expr,
+            output_fields=["message_id", "embedding"]
+        )
+
+        # 格式化返回结果
+        return results[0]["message_id"]
+
+    def similar_search(self, embedding: List[float],limits:int) -> List[str]:
+        # 准备搜索参数
+        search_params = {
+            "metric_type": self.index_params["metric_type"],
+            "params": {"nprobe": 10}
+        }
+
+        # 执行向量搜索
+        results = self.collection.search(
+            data=[embedding],
+            anns_field="embedding",
+            param=search_params,
+            limit=limits,
+            output_fields=["message_id"]
+        )
+
+        # 处理搜索结果
+        if len(results) > 0:
+            return [
+                hit.entity.get("message_id")
+                for hit in results[0]
+            ]
+        return []
+
+    def exists(self, message_id: str) -> bool:
+        expr = f'message_id == "{message_id}"'
+        results = self.collection.query(
+            expr=expr,
+            output_fields=["message_id"]
+        )
+        return len(results) > 0
+
 
