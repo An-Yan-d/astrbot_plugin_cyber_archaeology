@@ -34,11 +34,13 @@ astrbot插件市场搜索astrbot_plugin_cyber_archaeology，点击安装，等�
 > [!NOTE]
 > 
 > 请使用v1版本接口，如果在v2版本，请点击切换至旧版
+> 
 > 创建应用时请勾选你需要的模型，模型信息可以参考[百度千帆向量Embeddings](https://cloud.baidu.com/doc/WENXINWORKSHOP/s/alj562vvu)
 
 **embedding配置**
 
 请在astrbot面板配置，插件管理 -> astrbot_plugin_cyber_archaeology -> 操作 -> 插件配置
+
 配置调用embedding的provider (whichprovider)，在线api服务地址 (api_url)，api_key，secret_key和Embedding模型名称 (embed_model)五项
 
 
@@ -51,6 +53,7 @@ astrbot插件市场搜索astrbot_plugin_cyber_archaeology，点击安装，等�
 **embedding配置**
 
 请在astrbot面板配置，插件管理 -> astrbot_plugin_cyber_archaeology -> 操作 -> 插件配置
+
 配置调用embedding的provider (whichprovider)，在线api服务地址 (api_url)，api_key和Embedding模型名称 (embed_model)四项
 
 
@@ -94,6 +97,7 @@ ollama pull your_model
 **embedding配置**
 
 请在astrbot面板配置，插件管理 -> astrbot_plugin_cyber_archaeology -> 操作 -> 插件配置
+
 配置embedding的provider (whichprovider)，Ollama服务地址 (ollama_api_url)和Embedding模型名称 (embed_model)三项
 
 
