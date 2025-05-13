@@ -41,7 +41,12 @@ astrbot插件市场搜索astrbot_plugin_cyber_archaeology，点击安装，等�
 
 请在astrbot面板配置，插件管理 -> astrbot_plugin_cyber_archaeology -> 操作 -> 插件配置
 
-配置调用embedding的provider (whichprovider)，在线api服务地址 (api_url)，api_key，secret_key和Embedding模型名称 (embed_model)五项
+进行五项配置：
+1. 调用embedding的provider (whichprovider)
+2. 在线api服务地址 (api_url)
+3. api_key
+4. secret_key
+5. Embedding模型名称 (embed_model)
 
 
 #### 在线Ollama服务部署（openai）
@@ -54,12 +59,18 @@ astrbot插件市场搜索astrbot_plugin_cyber_archaeology，点击安装，等�
 
 请在astrbot面板配置，插件管理 -> astrbot_plugin_cyber_archaeology -> 操作 -> 插件配置
 
-配置调用embedding的provider (whichprovider)，在线api服务地址 (api_url)，api_key和Embedding模型名称 (embed_model)四项
+进行四项配置：
+1. 调用embedding的provider (whichprovider)
+2. 在线api服务地址 (api_url)
+3. api_key
+4. Embedding模型名称 (embed_model)四项
 
 
 
 
-#### 本地Ollama服务部署
+#### 本地Ollama服务部署（推荐）
+
+通过docker部署Ollama
 
 ```yaml
 version: '3.5'
@@ -84,7 +95,6 @@ services:
 ollama pull your_model
 ```
 
-以下是根据搜索结果整理的推荐模型信息表，补充了功能描述和模型大小：
 
 | 推荐模型                       | 功能描述                             | 大小     |
 |----------------------------|----------------------------------|--------|
@@ -98,7 +108,10 @@ ollama pull your_model
 
 请在astrbot面板配置，插件管理 -> astrbot_plugin_cyber_archaeology -> 操作 -> 插件配置
 
-配置embedding的provider (whichprovider)，Ollama服务地址 (ollama_api_url)和Embedding模型名称 (embed_model)三项
+进行三项配置：
+1. embedding的provider (whichprovider)
+2. Ollama服务地址 (ollama_api_url)
+3. Embedding模型名称 (embed_model)
 
 
 ## 🛠️ 使用指南
