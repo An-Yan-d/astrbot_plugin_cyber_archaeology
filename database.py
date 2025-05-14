@@ -1,17 +1,17 @@
 """
 database.py
 """
-from pymilvus import connections, Collection, utility, FieldSchema, CollectionSchema, DataType
+from pymilvus import connections, Collection, utility,  CollectionSchema
 from typing import List, Dict, Any,Optional
-
+from astrbot.api import logger
 
 class Database:
-    def __init__(self,db_path,config):
-        self._db_path =db_path
+    def __init__(self,config,fields):
         self.config=config
+        self.fields=fields
 
 
-    def add(self, message_id:str,embedding:List[float]) -> None:
+    def add(self, message_id:int,embedding:List[float]) -> None:
         """
         添加新记录
         :param record: 要添加的记录字典
@@ -27,7 +27,7 @@ class Database:
         """
         pass
 
-    def search(self, message_id:str) -> str:
+    def search(self, message_id:int) -> int:
         """
         根据条件搜索记录
         :param manager_id: 搜索的
@@ -44,58 +44,51 @@ class Database:
         """
         pass
 
-    def exists(self, message_id: str) -> bool:
+    def exists(self, message_id: int) -> bool:
         pass
 
 
 
 
 class MilvusDatabase(Database):
-    def __init__(self, config):
-        super().__init__( config)
+    def __init__(self, config,fields):
+        super().__init__(config,fields)
 
         # 从配置中提取参数
         self.collection_name = config.get("collection_name", "message_embeddings")
-        self.embedding_dim = config.get("embedding_dim", 768)
         self.index_params = config.get("index_params", {
             "index_type": "IVF_FLAT",
             "metric_type": "COSINE",
             "params": {"nlist": 128}
         })
+        self.connection_alias = config.get("connection_alias", "default")
 
         # 初始化集合（连接已由DatabaseManager建立）
         self.collection = self._init_collection()
 
-
     def _init_collection(self):
-        # 创建集合（如果不存在）
-        if not utility.has_collection(self.collection_name):
+        if not utility.has_collection(self.collection_name, using=self.connection_alias):
             # 定义字段模式
-            fields = [
-                FieldSchema(name="message_id", dtype=DataType.VARCHAR,
-                            is_primary=True, max_length=100),
-                FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR,
-                            dim=self.embedding_dim)
-            ]
 
+            logger.info(f"fields[_init_collection]向量参数为{self.fields[1]}")
             # 创建集合模式
-            schema = CollectionSchema(fields, description="Message embeddings storage")
+            schema = CollectionSchema(self.fields, description="Message embeddings storage")
 
             # 创建集合
-            collection = Collection(self.collection_name, schema)
+            collection = Collection(self.collection_name, schema, using=self.connection_alias)
 
-            # 创建索引
+            # 创建索引（保持不变）
             collection.create_index(
                 field_name="embedding",
                 index_params=self.index_params
             )
         else:
-            collection = Collection(self.collection_name)
+            collection = Collection(self.collection_name, using=self.connection_alias)
 
         collection.load()
         return collection
 
-    def add(self, message_id: str, embedding: List[float]) -> None:
+    def add(self, message_id: int, embedding: List[float]) -> None:
         # 构造插入数据
         data = [
             [message_id],
@@ -109,22 +102,10 @@ class MilvusDatabase(Database):
 
     def clear(self) -> None:
         # 删除整个集合
-        utility.drop_collection(self.collection_name)
+        utility.drop_collection(self.collection_name,using=self.connection_alias)
         # 重新初始化集合
         self.collection = self._init_collection()
 
-    def search(self, message_id: str) -> str:
-        # 构建查询表达式
-        expr = f'message_id == "{message_id}"'
-
-        # 执行查询
-        results = self.collection.query(
-            expr=expr,
-            output_fields=["message_id", "embedding"]
-        )
-
-        # 格式化返回结果
-        return results[0]["message_id"]
 
     def similar_search(self, embedding: List[float],limits:int) -> Optional[list]:
         # 准备搜索参数
@@ -150,11 +131,11 @@ class MilvusDatabase(Database):
             ]
         return []
 
-    def exists(self, message_id: str) -> bool:
-        expr = f'message_id == "{message_id}"'
+    def exists(self, message_id: int) -> bool:
         results = self.collection.query(
-            expr=expr,
-            output_fields=["message_id"]
+            expr=f"message_id in [{message_id}]",
+            output_fields=["message_id"],
+            limit=1
         )
         return len(results) > 0
 

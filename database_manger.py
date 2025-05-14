@@ -1,77 +1,134 @@
 """
 database_manager.py
 """
-from database import MilvusDatabase
+from .database import MilvusDatabase
 from astrbot.api import logger
-from pymilvus import connections
+from pymilvus import utility, connections, MilvusClient, FieldSchema, DataType
+from pymilvus.exceptions import MilvusException
+import os
+import time
+from typing import Optional
 
 
 class DatabaseManager:
     """管理多个独立数据库实例的工厂类（支持lite模式）"""
     _instance = None
 
-    def __new__(cls, base_config):
+    def __new__(cls, base_config,dim):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance.__initialized = False
         return cls._instance
 
-    def __init__(self, base_config):
+    def __init__(self, base_config,dim):
         if self.__initialized:
             return
         self.base_config = base_config.copy()
+        self.dim=dim
+        self.fields = [
+            FieldSchema(
+                name="message_id",
+                dtype=DataType.INT64,
+                is_primary=True
+            ),
+            FieldSchema(
+                name="embedding",
+                dtype=DataType.FLOAT_VECTOR,
+                dim=self.dim
+            )
+        ]
         self.databases = {}  # {db_id: MilvusDatabase}
-
-        # 判断运行模式
-        if base_config.get("islite"):
-            self._setup_lite_mode()
-        else:
-            self._setup_server_mode()
-
+        self.client: Optional[MilvusClient] = None  # lite模式专用client
         self.__initialized = True
+        self.isconnected=False
+        self.mode = "lite" if base_config.get("islite", True) else "server"
 
-    def _setup_lite_mode(self):
-        """配置嵌入式lite模式连接"""
-        from milvus import default_server  # 延迟导入避免强依赖
+        self.connect()
 
-        # 启动嵌入式服务器
-        default_server.set_base_dir(self.base_config["lite_path"])
-        default_server.start()
+    def _connect_lite(self) -> None:
+        """嵌入式模式连接（带异常分类）"""
+        lite_path = self.base_config["lite_path"]
+        try:
+            os.makedirs(lite_path, exist_ok=True)
+            lite_db_path=os.path.join(lite_path,"milvus_lite.db")
+            # 初始化客户端
+            self.client = MilvusClient(lite_db_path)
+            connections.connect(alias=self.mode, uri=lite_db_path)
+            logger.info(f"Lite模式连接成功，路径：{lite_db_path}")
+        except MilvusException as e:
+            logger.error(f"Lite模式连接失败：{str(e)}")
+            raise
 
-        # 获取动态分配的端口
-        lite_port = default_server.listen_port
-
-        # 建立连接
-        connections.connect(
-            alias="default",
-            host="127.0.0.1",
-            port=lite_port
-        )
-
-    def _setup_server_mode(self):
-        """配置标准服务器模式连接"""
+    def _connect_server(self) -> None:
+        """服务器模式连接（带异常处理）"""
         host = self.base_config.get("host", "localhost")
         port = self.base_config.get("port", "19530")
         user = self.base_config.get("user", "")
         password = self.base_config.get("password", "")
 
-        connections.connect(
-            alias="default",
-            host=host,
-            port=port,
-            user=user,
-            password=password
-        )
+        try:
+            connections.connect(
+                alias=self.mode,
+                host=host,
+                port=port,
+                user=user,
+                password=password
+            )
+            logger.info(f"服务器模式连接成功：{host}:{port}")
+        except MilvusException as e:
+            # 如果是认证相关问题，可以手动检查错误信息
+            if "authentication" in str(e).lower():
+                logger.critical(f"认证失败：{e}")
+            else:
+                logger.error(f"服务器连接失败：{e}")
+            raise
 
+    def connect(self, retries: int = 2) -> None:
+        """显式建立连接（带重试机制）"""
+        self.disconnect()  # 先断开旧连接
+        for attempt in range(retries + 1):
+            try:
+                if self.base_config.get("islite", True):
+                    self._connect_lite()
+                else:
+                    self._connect_server()
+                self.isconnected=True
+                return
+            except MilvusException as e:
+                if attempt == retries:
+                    raise
+                logger.warning(f"连接尝试 {attempt+1}/{retries} 失败，5秒后重试...")
+                time.sleep(5)
+
+    def disconnect(self) -> None:
+        """安全关闭所有连接"""
+        if self.isconnected:
+            alias = "lite" if self.base_config.get("islite", True) else "server"
+            try:
+                connections.disconnect(alias)
+                if self.client:
+                    self.client.close()
+                    self.client = None
+                logger.info(f"成功断开 {alias} 模式连接")
+                self.isconnected=False
+            except MilvusException as e:
+                logger.error(f"断开连接时发生错误：{str(e)}")
+                raise
 
     def get_database(self, db_id: str) -> 'MilvusDatabase':
+        if not self.isconnected:
+            self.connect()
         if db_id not in self.databases:
             config = self.base_config.copy()
-            config["collection_name"] = db_id
-            self.databases[db_id] = MilvusDatabase(config)
+            config.update({
+                "collection_name": db_id,
+                "connection_alias": self.mode  # 传递连接别名
+            })
+            self.databases[db_id] = MilvusDatabase(config,self.fields)
         return self.databases[db_id]
 
-    def remove_database(self, db_id: str) -> None:
+    def clear_database(self, db_id: str) -> None:
+        """清空某个数据库"""
         if db_id in self.databases:
             self.databases[db_id].clear()
             del self.databases[db_id]

@@ -5,23 +5,31 @@
     "items": {
       "islite": {
         "type": "bool",
-        "description": "是否使用lite模式"
+        "description": "是否使用lite模式",
+        "default": true
       },
       "host": {
         "type": "string",
-        "description": "服务器地址，默认为localhost"
+        "description": "服务器地址",
+        "hint": "默认为localhost"
       },
       "port": {
         "type": "string",
-        "description": "端口号，默认为19530"
+        "description": "端口号",
+        "hint":"默认为19530"
       },
       "user": {
         "type": "string",
-        "description": "用户名，默认为空"
+        "description": "用户名"
       },
       "password": {
         "type": "string",
-        "description": "密码，默认为空"
+        "description": "密码"
+      },
+      "lite_path": {
+        "type": "string",
+        "description": "lite模式保存地址",
+        "default": "data/astrbot_plugin_cyber_archaeology"
       }
     }
   },
