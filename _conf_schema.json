@@ -1,4 +1,4 @@
-
+{
   "Milvus": {
     "type": "object",
     "description": "Milvus配置",
@@ -33,18 +33,6 @@
         "type": "int",
         "description": "返回结果数量",
         "default": 5
-      },
-        "threshold": {
-        "type": "float",
-        "description": "同义相似阈值",
-        "hint": "小于本值视作意思相近,范围为0~1",
-        "default": 0.5
-      },
-      "cluster_threshold": {
-        "type": "float",
-        "description": "类相似阈值",
-        "hint": "每一类最低相似程度,范围为0~1",
-        "default": 0.45
       }
     }
   }

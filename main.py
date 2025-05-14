@@ -16,8 +16,7 @@ from .database_manger import DatabaseManager
 class QQArchaeology(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
-
-
+        self.context=context
 
         self.config = config["plugin_conf"]
 
@@ -32,18 +31,18 @@ class QQArchaeology(Star):
             logger.error(f"初始化embedding服务时发生未知错误: {str(e)}", exc_info=True)
             raise
 
-        database_config=config["Milvus"]
+        self.database_config=config["Milvus"]
         # 构建数据库路径
-        database_config["lite_path"] = os.path.join(
+        self.database_config["lite_path"] = os.path.join(
             "data",
             "astrbot_plugin_cyber_archaeology",
             "milvus_lite_db"
         )
         # 读取维度
         try:
-            database_config["embedding_dim"] = self.embeddingProvider.get_dim()
-            logger.debug(f"设置数据库路径: {database_config['lite_path']}")
-            logger.debug(f"设置向量维度: {database_config['embedding_dim']}")
+            self.database_config["embedding_dim"] = self.embeddingProvider.get_dim()
+            logger.debug(f"设置数据库路径: {self.database_config['lite_path']}")
+            logger.debug(f"设置向量维度: {self.database_config['embedding_dim']}")
         except AttributeError as e:
             logger.error("Embedding服务缺少get_dim()方法")
             raise RuntimeError("不兼容的embedding服务") from e
@@ -53,7 +52,7 @@ class QQArchaeology(Star):
 
         try:
             # 初始化数据库管理器
-            self.databaseManager = DatabaseManager(database_config)
+            self.databaseManager = DatabaseManager(self.database_config)
             logger.info("Milvus数据库初始化成功")
         except ConnectionError as e:
             logger.error("数据库连接失败，请检查配置参数")
@@ -93,7 +92,7 @@ class QQArchaeology(Star):
 
 
         # 排序并取前K个
-        top_results = database.similar_search(query_embedding,self.config["plugin_conf"]["top_k"])
+        top_results = database.similar_search(query_embedding,self.config["top_k"])
 
         # 构造返回结果
         if not top_results:
