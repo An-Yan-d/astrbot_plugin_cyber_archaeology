@@ -7,7 +7,6 @@ from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
 from astrbot.api.star import Context, Star, register
 from astrbot.api.message_components import Plain
 from .database_manger import DatabaseManager
-from .embedding_api import EmbeddingProvider
 
 
 
@@ -17,9 +16,13 @@ from .embedding_api import EmbeddingProvider
 class QQArchaeology(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
+
+
+
         self.config = config["plugin_conf"]
 
-        self.embeddingProvider = EmbeddingProvider(config)
+
+        self.Providers = context.get_registered_star("astrbot_plugin_embedding_adapter").star_cls()
         database_config=config["Milvus"]
         database_config["lite_path"]=os.path.join("data","astrbot_plugin_cyber_archaeology","milvus_lite_db")
         database_config["embedding_dim"]=self.embeddingProvider.get_dim()
@@ -27,13 +30,17 @@ class QQArchaeology(Star):
 
 
 
-
+    def get_unified_db_id(self,modelname,unified_msg_origin):
+        """用于给数据库分配唯一识别码"""
+        return modelname+":"+unified_msg_origin
 
     @filter.command("search",alias={'考古'})
     async def search_command(self, event: AstrMessageEvent, query: str):
         """搜索历史记录 示例：/search 关键词"""
         unified_msg_origin = event.unified_msg_origin
-        database = self.databaseManager.get_database(unified_msg_origin)  # 获取当前群的会话
+        model_id=self.databaseManager.get_model_name()
+        db_id=self.get_unified_db_id(model_id,unified_msg_origin)
+        database = self.databaseManager.get_database(db_id)  # 获取当前群的会话
         group_id=event.get_group_id()
 
         if not query:
@@ -41,7 +48,7 @@ class QQArchaeology(Star):
             return
 
         # 获取查询embedding
-        query_embedding = await self.embeddingProvider.get_embedding(query)
+        query_embedding = await self.Providers.get_embedding(query)
         if not query_embedding:
             yield event.plain_result("Embedding服务不可用")
             return
@@ -89,7 +96,9 @@ class QQArchaeology(Star):
     async def save_history(self, event: AstrMessageEvent):
         """保存群聊历史记录"""
         unified_msg_origin = event.unified_msg_origin
-        database = self.databaseManager.get_database(unified_msg_origin)  # 获取对应群组的会话
+        model_id = self.databaseManager.get_model_name()
+        db_id = self.get_unified_db_id(model_id, unified_msg_origin)
+        database = self.databaseManager.get_database(db_id)
         try:
 
             # 获取消息文本
@@ -137,7 +146,10 @@ class QQArchaeology(Star):
     async def clear_current_command(self, event: AstrMessageEvent):
         """清空当前群聊记录 示例：/ca clear"""
         try:
-            self.databaseManager.remove_database(event.unified_msg_origin)
+            unified_msg_origin = event.unified_msg_origin
+            model_id = self.databaseManager.get_model_name()
+            db_id = self.get_unified_db_id(model_id, unified_msg_origin)
+            self.databaseManager.remove_database(db_id)
             yield event.plain_result("本群历史记录已清空")
         except Exception as e:
             logger.error(f"清空本群记录失败: {str(e)}")
@@ -147,7 +159,10 @@ class QQArchaeology(Star):
     @cyber_archaeology.command("load_history")
     async def load_history_command(self, event: AstrMessageEvent, count: int = None, seq: int = 0):
         """读取插件未安装前bot所保存的历史数据当前群聊记录 示例：/ca load_history <读取消息条数:int> [初始消息序号:int]"""
-        database = self.databaseManager.get_database(event.unified_msg_origin)
+        unified_msg_origin = event.unified_msg_origin
+        model_id = self.databaseManager.get_model_name()
+        db_id = self.get_unified_db_id(model_id, unified_msg_origin)
+        database = self.databaseManager.get_database(db_id)
         try:
             from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
             assert isinstance(event, AiocqhttpMessageEvent)
