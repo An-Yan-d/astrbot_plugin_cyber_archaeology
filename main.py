@@ -21,12 +21,49 @@ class QQArchaeology(Star):
 
         self.config = config["plugin_conf"]
 
+        try:
+            # 初始化Embedding服务
+            self.embeddingProvider = context.get_registered_star("astrbot_plugin_embedding_adapter").star_cls()
+            logger.info("Embedding依赖插件调用成功")
+        except AttributeError as e:
+            logger.error("未找到注册的embedding插件，请检查插件依赖")
+            raise RuntimeError("缺失embedding插件依赖") from e
+        except Exception as e:
+            logger.error(f"初始化embedding服务时发生未知错误: {str(e)}", exc_info=True)
+            raise
 
-        self.Providers = context.get_registered_star("astrbot_plugin_embedding_adapter").star_cls()
         database_config=config["Milvus"]
-        database_config["lite_path"]=os.path.join("data","astrbot_plugin_cyber_archaeology","milvus_lite_db")
-        database_config["embedding_dim"]=self.embeddingProvider.get_dim()
-        self.databaseManager =  DatabaseManager(database_config)
+        # 构建数据库路径
+        database_config["lite_path"] = os.path.join(
+            "data",
+            "astrbot_plugin_cyber_archaeology",
+            "milvus_lite_db"
+        )
+        # 读取维度
+        try:
+            database_config["embedding_dim"] = self.embeddingProvider.get_dim()
+            logger.debug(f"设置数据库路径: {database_config['lite_path']}")
+            logger.debug(f"设置向量维度: {database_config['embedding_dim']}")
+        except AttributeError as e:
+            logger.error("Embedding服务缺少get_dim()方法")
+            raise RuntimeError("不兼容的embedding服务") from e
+        except Exception as e:
+            logger.error(f"配置数据库参数时发生错误: {str(e)}", exc_info=True)
+            raise
+
+        try:
+            # 初始化数据库管理器
+            self.databaseManager = DatabaseManager(database_config)
+            logger.info("Milvus数据库初始化成功")
+        except ConnectionError as e:
+            logger.error("数据库连接失败，请检查配置参数")
+            raise RuntimeError("数据库连接失败") from e
+        except ValueError as e:
+            logger.error("数据库参数验证失败: " + str(e))
+            raise
+        except Exception as e:
+            logger.error(f"初始化数据库时发生未知错误: {str(e)}", exc_info=True)
+            raise
 
 
 
