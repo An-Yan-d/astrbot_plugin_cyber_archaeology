@@ -17,12 +17,15 @@ from .embedding_api import EmbeddingProvider
 class QQArchaeology(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
-        self.config = config
-
-        database_config={}
-        self.databaseManager =  DatabaseManager(database_config)
+        self.config = config["plugin_conf"]
 
         self.embeddingProvider = EmbeddingProvider(config)
+        database_config=config["Milvus"]
+        database_config["lite_path"]=os.path.join("data","astrbot_plugin_cyber_archaeology","milvus_lite_db")
+        database_config["embedding_dim"]=self.embeddingProvider.get_dim()
+        self.databaseManager =  DatabaseManager(database_config)
+
+
 
 
 
@@ -86,7 +89,7 @@ class QQArchaeology(Star):
     async def save_history(self, event: AstrMessageEvent):
         """保存群聊历史记录"""
         unified_msg_origin = event.unified_msg_origin
-        database = await self.databaseManager.get_database(unified_msg_origin)  # 获取对应群组的会话
+        database = self.databaseManager.get_database(unified_msg_origin)  # 获取对应群组的会话
         try:
 
             # 获取消息文本
@@ -180,7 +183,7 @@ class QQArchaeology(Star):
                 if myid == sender.get('user_id', ""):
                     continue
 
-                if await cluster_manager.is_repeated_message(message_id):
+                if database.exists(message_id):
                     continue
                 # 提取所有文本内容（兼容多段多类型文本消息）
                 message_text_chain = []

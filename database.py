@@ -1,5 +1,8 @@
+"""
+database.py
+"""
 from pymilvus import connections, Collection, utility, FieldSchema, CollectionSchema, DataType
-from typing import List, Dict, Any
+from typing import List, Dict, Any,Optional
 
 
 class Database:
@@ -24,7 +27,7 @@ class Database:
         """
         pass
 
-    def search(self, message_id:str) -> List[Dict[str, Any]]:
+    def search(self, message_id:str) -> str:
         """
         根据条件搜索记录
         :param manager_id: 搜索的
@@ -33,7 +36,7 @@ class Database:
         pass
 
 
-    def similar_search(self, embedding:List[float],limits:int) -> List[str]:
+    def similar_search(self, embedding:List[float],limits:int) -> Optional[list]:
         """
         根据条件搜索记录
         :param embedding: 查询的消息embedding
@@ -48,35 +51,21 @@ class Database:
 
 
 class MilvusDatabase(Database):
-    def __init__(self, db_path, config):
-        super().__init__(db_path, config)
+    def __init__(self, config):
+        super().__init__( config)
 
-        # 从配置中提取Milvus连接参数
-        self.host = config.get("host", "localhost")
-        self.port = config.get("port", "19530")
-        self.user = config.get("user", "")
-        self.password = config.get("password", "")
+        # 从配置中提取参数
         self.collection_name = config.get("collection_name", "message_embeddings")
         self.embedding_dim = config.get("embedding_dim", 768)
-
-        # 建立Milvus连接
-        connections.connect(
-            "default",
-            host=self.host,
-            port=self.port,
-            user=self.user,
-            password=self.password
-        )
-
-        # 初始化集合
-        self.collection = self._init_collection()
-
-        # 配置索引参数
         self.index_params = config.get("index_params", {
             "index_type": "IVF_FLAT",
             "metric_type": "COSINE",
             "params": {"nlist": 128}
         })
+
+        # 初始化集合（连接已由DatabaseManager建立）
+        self.collection = self._init_collection()
+
 
     def _init_collection(self):
         # 创建集合（如果不存在）
@@ -124,9 +113,9 @@ class MilvusDatabase(Database):
         # 重新初始化集合
         self.collection = self._init_collection()
 
-    def search(self, messager_id: str) -> str:
+    def search(self, message_id: str) -> str:
         # 构建查询表达式
-        expr = f'message_id == "{messager_id}"'
+        expr = f'message_id == "{message_id}"'
 
         # 执行查询
         results = self.collection.query(
@@ -137,7 +126,7 @@ class MilvusDatabase(Database):
         # 格式化返回结果
         return results[0]["message_id"]
 
-    def similar_search(self, embedding: List[float],limits:int) -> List[str]:
+    def similar_search(self, embedding: List[float],limits:int) -> Optional[list]:
         # 准备搜索参数
         search_params = {
             "metric_type": self.index_params["metric_type"],
@@ -168,5 +157,6 @@ class MilvusDatabase(Database):
             output_fields=["message_id"]
         )
         return len(results) > 0
+
 
 
