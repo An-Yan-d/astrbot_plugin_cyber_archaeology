@@ -1,8 +1,8 @@
 """
 database_manager.py
 """
-from .database import MilvusDatabase
-from astrbot.api import logger
+from .database import Milvuscollection
+from .logger import logger
 from pymilvus import utility, connections, MilvusClient, FieldSchema, DataType
 from pymilvus.exceptions import MilvusException
 import os
@@ -12,17 +12,8 @@ from typing import Optional
 
 class DatabaseManager:
     """管理多个独立数据库实例的工厂类（支持lite模式）"""
-    _instance = None
-
-    def __new__(cls, base_config,dim):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance.__initialized = False
-        return cls._instance
 
     def __init__(self, base_config,dim):
-        if self.__initialized:
-            return
         self.base_config = base_config.copy()
         self.dim=dim
         self.fields = [
@@ -41,7 +32,7 @@ class DatabaseManager:
         self.client: Optional[MilvusClient] = None  # lite模式专用client
         self.__initialized = True
         self.isconnected=False
-        self.mode = "lite" if base_config.get("islite", True) else "server"
+        self.connection_alias = "lite" if base_config.get("islite", True) else "server"
 
         self.connect()
 
@@ -53,7 +44,7 @@ class DatabaseManager:
             lite_db_path=os.path.join(lite_path,"milvus_lite.db")
             # 初始化客户端
             self.client = MilvusClient(lite_db_path)
-            connections.connect(alias=self.mode, uri=lite_db_path)
+            connections.connect(alias=self.connection_alias, uri=lite_db_path)
             logger.info(f"Lite模式连接成功，路径：{lite_db_path}")
         except MilvusException as e:
             logger.error(f"Lite模式连接失败：{str(e)}")
@@ -68,7 +59,7 @@ class DatabaseManager:
 
         try:
             connections.connect(
-                alias=self.mode,
+                alias=self.connection_alias,
                 host=host,
                 port=port,
                 user=user,
@@ -115,23 +106,34 @@ class DatabaseManager:
                 logger.error(f"断开连接时发生错误：{str(e)}")
                 raise
 
-    def get_database(self, db_id: str) -> 'MilvusDatabase':
+    def get_collection(self, db_id: str) -> 'Milvuscollection':
         if not self.isconnected:
             self.connect()
         if db_id not in self.databases:
             config = self.base_config.copy()
             config.update({
                 "collection_name": db_id,
-                "connection_alias": self.mode  # 传递连接别名
+                "connection_alias": self.connection_alias  # 传递连接别名
             })
-            self.databases[db_id] = MilvusDatabase(config,self.fields)
+            self.databases[db_id] = Milvuscollection(config, self.fields)
         return self.databases[db_id]
 
-    def clear_database(self, db_id: str) -> None:
-        """清空某个数据库"""
-        if db_id in self.databases:
-            self.databases[db_id].clear()
-            del self.databases[db_id]
+    def clear_collection(self, group_id: str) -> None:
+        """清空名字包含db_id的所有collection"""
+        if not self.isconnected:
+            self.connect()
+
+        try:
+            collections = utility.list_collections(using=self.connection_alias)
+            for collection_name in collections:
+                if group_id in collection_name:
+                    if collection_name in self.databases:
+                        del self.databases[collection_name]
+                    utility.drop_collection(collection_name,using=self.connection_alias)
+                    logger.info(f"已删除集合: {collection_name}")
+        except Exception as e:
+            logger.error(f"删除集合时发生错误: {str(e)}")
+            raise
 
     def clear(self) -> None:
         """
@@ -140,11 +142,16 @@ class DatabaseManager:
         1. 删除所有Milvus集合
         2. 清除实例缓存
         """
-        # 删除所有集合
-        for db in self.databases.values():
-            try:
-                db.clear()
-            except Exception as e:
-                logger.info(f"删除集合 {db.collection_name} 失败: {str(e)}")
-        # 清空实例缓存
-        self.databases.clear()
+        if not self.isconnected:
+            self.connect()
+
+        try:
+            collections = utility.list_collections(using=self.connection_alias)
+            for collection_name in collections:
+                if collection_name in self.databases:
+                    del self.databases[collection_name]
+                utility.drop_collection(collection_name,using=self.connection_alias)
+                logger.info(f"已删除集合: {collection_name}")
+        except Exception as e:
+            logger.error(f"删除所有集合时发生错误: {str(e)}")
+            raise

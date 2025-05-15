@@ -3,7 +3,8 @@ database.py
 """
 from pymilvus import connections, Collection, utility,  CollectionSchema
 from typing import List, Dict, Any,Optional
-from astrbot.api import logger
+from .logger import logger
+
 
 class Database:
     def __init__(self,config,fields):
@@ -50,7 +51,7 @@ class Database:
 
 
 
-class MilvusDatabase(Database):
+class Milvuscollection(Database):
     def __init__(self, config,fields):
         super().__init__(config,fields)
 
@@ -70,7 +71,7 @@ class MilvusDatabase(Database):
         if not utility.has_collection(self.collection_name, using=self.connection_alias):
             # 定义字段模式
 
-            logger.info(f"fields[_init_collection]向量参数为{self.fields[1]}")
+            logger.info(f"[_init_collection]{self.collection_name}向量参数为{self.fields[1]}")
             # 创建集合模式
             schema = CollectionSchema(self.fields, description="Message embeddings storage")
 
