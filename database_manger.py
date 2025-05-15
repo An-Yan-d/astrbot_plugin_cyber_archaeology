@@ -1,13 +1,15 @@
 """
 database_manager.py
 """
-from .database import Milvuscollection
-from .logger import logger
-from pymilvus import utility, connections, MilvusClient, FieldSchema, DataType
-from pymilvus.exceptions import MilvusException
 import os
 import time
 from typing import Optional
+
+from pymilvus import utility, connections, MilvusClient, FieldSchema, DataType
+from pymilvus.exceptions import MilvusException
+from astrbot.api import logger
+
+from .database import Milvuscollection
 
 
 class DatabaseManager:

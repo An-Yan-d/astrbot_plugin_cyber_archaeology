@@ -3,7 +3,7 @@ database.py
 """
 from pymilvus import connections, Collection, utility,  CollectionSchema
 from typing import List, Dict, Any,Optional
-from .logger import logger
+from astrbot.api import logger
 
 
 class Database:

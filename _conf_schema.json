@@ -6,6 +6,7 @@
       "islite": {
         "type": "bool",
         "description": "是否使用lite模式",
+        "hint": "lite模式只需要填写保存地址这一项",
         "default": true
       },
       "host": {
@@ -29,6 +30,7 @@
       "lite_path": {
         "type": "string",
         "description": "lite模式保存地址",
+        "hint": "data/your_path",
         "default": "data/astrbot_plugin_cyber_archaeology"
       }
     }
