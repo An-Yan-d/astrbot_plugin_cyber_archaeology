@@ -7,8 +7,10 @@
 
 
 基于embedding技术的群聊记忆挖掘工具，实现历史消息的智能回溯与聚合分析。通过Embedding生成语义向量，构建动态聚类算法，打造群组专属的数字记忆库。
+
 需安装依赖插件[astrbot_plugin_embedding_adapter
-](https://github.com/TheAnyan/astrbot_plugin_embedding_adapter)
+](https://github.com/TheAnyan/astrbot_plugin_embedding_adapter)。
+
 仅支持aiocqhttp。
 
 喜欢的话点个🌟吧！
