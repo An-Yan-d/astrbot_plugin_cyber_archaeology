@@ -1,7 +1,7 @@
 
 # CyberArchaeology 赛博考古插件
 
-[![License](https://img.shields.io/badge/License-AGPL%20v3-orange.svg)](https://opensource.org/licenses/AGPL-3.0) [![AstrBot](https://img.shields.io/badge/AstrBot-3.5%2B-blue.svg)](https://github.com/Soulter/AstrBot) ![Version](https://img.shields.io/badge/Version-3.0-success) [![GitHub](https://img.shields.io/badge/author-AnYan-blue)](https://github.com/TheAnyan)
+[![License](https://img.shields.io/badge/License-AGPL%20v3-orange.svg)](https://opensource.org/licenses/AGPL-3.0) [![AstrBot](https://img.shields.io/badge/AstrBot-3.5%2B-blue.svg)](https://github.com/Soulter/AstrBot) ![Version](https://img.shields.io/badge/Version-4.0-success) [![GitHub](https://img.shields.io/badge/author-AnYan-blue)](https://github.com/TheAnyan)
 
 [![Moe Counter](https://count.getloli.com/@cyberArchaeology?name=cyberArchaeology&theme=nixietube-1&padding=7&offset=0&align=top&scale=1&pixelated=1&darkmode=auto)](https://github.com/TheAnyan/astrbot_plugin_cyber_archaeology)
 
@@ -16,102 +16,10 @@
 1. **实时语义归档** - 自动分析每条消息的深层语义特征
 2. **动态记忆聚类** - 采用增量式加权平均算法动态调整簇中心
 3. **多维模糊检索** - 基于语义相似度实现模糊语义检索
-4. **分布式记忆库** - 每个群组独立数据库隔离存储（`data/astrbot_plugin_cyber_archaeology/db`）
+4. **分布式记忆库** - 每个群组独立数据库隔离存储（`data/astrbot_plugin_cyber_archaeology`）
 
-## ⚙️ 部署准备
-### 插件安装
+## ⚙️ 插件安装
 astrbot插件市场搜索astrbot_plugin_cyber_archaeology，点击安装，等待完成即可。
-
-
-### embedding 模型部署
-
-#### 在线Ollama服务部署（百度）
-
-请参考百度[鉴权方式文档](https://cloud.baidu.com/doc/WENXINWORKSHOP/s/Dlkm79mnx#%E5%9F%BA%E4%BA%8E%E5%AE%89%E5%85%A8%E8%AE%A4%E8%AF%81aksk%E7%AD%BE%E5%90%8D%E8%AE%A1%E7%AE%97%E8%AE%A4%E8%AF%81)
-
-通过[创建应用](https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application/v1)获取api_key和secret_key
-
-> [!NOTE]
-> 
-> 请使用v1版本接口，如果在v2版本，请点击切换至旧版
-> 
-> 创建应用时请勾选你需要的模型，模型信息可以参考[百度千帆向量Embeddings](https://cloud.baidu.com/doc/WENXINWORKSHOP/s/alj562vvu)
-
-**embedding配置**
-
-请在astrbot面板配置，插件管理 -> astrbot_plugin_cyber_archaeology -> 操作 -> 插件配置
-
-进行五项配置：
-1. 调用embedding的provider (whichprovider)
-2. 在线api服务地址 (api_url)
-3. api_key
-4. secret_key
-5. Embedding模型名称 (embed_model)
-
-
-#### 在线Ollama服务部署（openai）
-> [!NOTE]
-> 
-> 由于作者没有办法访问openai，因此没有测试。
-
-
-**embedding配置**
-
-请在astrbot面板配置，插件管理 -> astrbot_plugin_cyber_archaeology -> 操作 -> 插件配置
-
-进行四项配置：
-1. 调用embedding的provider (whichprovider)
-2. 在线api服务地址 (api_url)
-3. api_key
-4. Embedding模型名称 (embed_model)四项
-
-
-
-
-#### 本地Ollama服务部署（推荐）
-
-通过docker部署Ollama
-
-```yaml
-version: '3.5'
-services:
-  ollama:
-    restart: always
-    container_name: 11434-ollama
-    image: ollama/ollama
-    ports:
-      - 11434:11434
-    environment:
-      - OLLAMA_MODELS=/data/models
-    volumes:
-      - /your/path/to/models/:/data/models #你保存模型的位置，需要自己修改
-    # 命令启动 serve
-    command: serve
-```
-
-**下载embedding模型**
-
-```bash
-ollama pull your_model
-```
-
-
-| 推荐模型                       | 功能描述                             | 大小     |
-|----------------------------|----------------------------------|--------|
-| nomic-embed-text        | 仅英文，Ollama排名第一                   | 274 MB |
-| quentinz/bge-small-zh-v1.5 | 针对中文优化的轻量级文本嵌入模型                 | 48 MB  |
-| bge-m3                  | 多语言（支持100+语言）、多粒度模型，支持密集/稀疏/多向量检索 | 1.2 GB |
-
-
-
-**embedding配置**
-
-请在astrbot面板配置，插件管理 -> astrbot_plugin_cyber_archaeology -> 操作 -> 插件配置
-
-进行三项配置：
-1. embedding的provider (whichprovider)
-2. Ollama服务地址 (ollama_api_url)
-3. Embedding模型名称 (embed_model)
 
 
 ## 🛠️ 使用指南
