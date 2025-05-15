@@ -137,7 +137,7 @@ class QQArchaeology(Star):
                     return
 
                 # 生成embedding
-                embedding = await self.provider.get_embedding(message)
+                embedding = await self.provider.get_embedding_async(message)
 
                 if not embedding:
                     return
@@ -162,7 +162,7 @@ class QQArchaeology(Star):
                 return
 
             # 获取查询embedding
-            query_embedding = await self.provider.get_embedding(query)
+            query_embedding = await self.provider.get_embedding_async(query)
             if not query_embedding:
                 yield event.plain_result("Embedding服务不可用")
                 return
@@ -297,7 +297,7 @@ class QQArchaeology(Star):
 
 
                     # 获取embedding
-                    embedding = await self.provider.get_embedding(message_text)
+                    embedding = await self.provider.get_embedding_async(message_text)
 
 
                     collection.add(message_id, embedding)
