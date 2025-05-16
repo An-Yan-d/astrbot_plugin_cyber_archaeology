@@ -5,11 +5,14 @@ from typing import  Optional
 
 import astrbot.api.message_components as Comp
 from astrbot.api import AstrBotConfig
-from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
+from astrbot.api.event import filter, AstrMessageEvent, MessageChain
 from astrbot.api.star import Context, Star, register
 from astrbot.api.message_components import Plain
 from astrbot.api import logger
-
+from astrbot.core.utils.session_waiter import (
+    session_waiter,
+    SessionController,
+)
 
 from .database_manger import DatabaseManager
 
@@ -18,7 +21,7 @@ from .database_manger import DatabaseManager
 
 
 
-@register("astrbot_plugin_cyber_archaeology", "AnYan", "本插件利用embedding，根据描述查询意思相符的历史信息。", "3.0")
+@register("astrbot_plugin_cyber_archaeology", "AnYan", "本插件利用embedding，根据描述查询意思相符的历史信息。", "4.0.1")
 class QQArchaeology(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
@@ -210,13 +213,40 @@ class QQArchaeology(Star):
     @cyber_archaeology.command("clear_all", alias={'清空所有记录'})
     async def clear_all_command(self, event: AstrMessageEvent):
         """清空所有群聊记录 示例：/ca clear_all"""
+    
         if await self._init_attempt():
+
+            yield event.plain_result("是否清空所有群历史记录？\n回复YES确认，超时(30s)默认不清空")
+
+            @session_waiter(timeout=30, record_history_chains=False) # 注册一个会话控制器，设置超时时间为 30 秒，不记录历史消息链
+            async def waiter(controller: SessionController, event: AstrMessageEvent):
+                if event.is_admin():
+                    if event.message_str == "YES" or event.message_str == "yes" or event.message_str == "y":
+                        try:
+                            self.database_manager.clear()
+                            await event.send(MessageChain().message("所有群历史记录已清空"))  
+                        except Exception as e:
+                            logger.error(f"清空所有记录失败: {str(e)}")
+                            await event.send(MessageChain().message("清空操作失败，请检查日志"))  
+                        
+                    else:
+                        await event.send(MessageChain().message("清空操作取消"))
+                else:
+                    await event.send(MessageChain().message("非管理员回复，任务取消（建议私聊使用本命令）"))
+
+                
+                controller.stop()
+                
+
             try:
-                self.database_manager.clear()
-                yield event.plain_result("所有群历史记录已清空")
+                await waiter(event)
+            except TimeoutError: # 当超时后，会话控制器会抛出 TimeoutError
+                yield event.plain_result("超时了，默认操作取消")
             except Exception as e:
-                logger.error(f"清空所有记录失败: {str(e)}")
-                yield event.plain_result("清空操作失败，请检查日志")
+                logger.error(f"会话控制器发生错误: {str(e)}")
+                yield event.plain_result("发生错误，请检查日志")
+
+            
         else:
             yield event.plain_result("插件未成功启动")
 
@@ -237,68 +267,119 @@ class QQArchaeology(Star):
         else:
             yield event.plain_result("插件未成功启动")
 
+
+    async def load_history_from_aiocqhttp(self, event: AstrMessageEvent, count: int, seq: int ,group_id:int):
+        """读取插件未安装前bot所保存的历史数据当前群聊记录 示例：/ca load_history <读取消息条数:int> [初始消息序号:int]"""
+        from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
+        assert isinstance(event, AiocqhttpMessageEvent)
+        client = event.bot
+
+        payloads = {
+        "group_id": group_id,
+        "message_seq": seq,
+        "count": count,
+        "reverseOrder": False
+        }
+
+        ret = await client.api.call_action("get_group_msg_history", **payloads)
+
+        messages = ret.get("messages", [])
+
+        return messages
+
+
+
+    async def format_history_from_aiocqhttp(self, messages, myid, collection):
+
+        # 处理消息历史记录，对其格式化
+
+        chat_list = []
+        message_id_list = []
+
+
+        
+        for msg in messages:
+            # 解析发送者信息
+            sender = msg.get('sender', {})
+            message_id = msg['message_id']
+
+            if myid == sender.get('user_id', ""):
+                continue
+
+            if collection.exists(message_id):
+                continue
+            # 提取所有文本内容（兼容多段多类型文本消息）
+            message_text_chain = []
+            for part in msg['message']:
+                if part['type'] == 'text':
+                    message_text_chain.append(part['data']['text'].strip("\t\n\r"))
+
+            message_text=" ".join(message_text_chain)
+
+            # 检查message_text的第一个字符是否为"/"，如果是则跳过当前循环（用于跳过用户调用Bot的命令）
+            if (not message_text) or message_text.startswith("/") or len(message_text.strip())<3:
+                continue
+            chat_list.append(message_text)
+            message_id_list.append(message_id)
+        
+
+
+        
+        return  chat_list,message_id_list
+
+
+
     @filter.permission_type(filter.PermissionType.ADMIN)
     @cyber_archaeology.command("load_history")
     async def load_history_command(self, event: AstrMessageEvent, count: int = None, seq: int = 0):
         """读取插件未安装前bot所保存的历史数据当前群聊记录 示例：/ca load_history <读取消息条数:int> [初始消息序号:int]"""
         if await self._init_attempt():
-            unified_msg_origin = event.unified_msg_origin
-            db_id = self.get_unified_db_id(unified_msg_origin)
-            collection = self.database_manager.get_collection(db_id)
-            try:
-                from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
-                assert isinstance(event, AiocqhttpMessageEvent)
-                client = event.bot
+            if count is None:
+                yield event.plain_result("未传入要导入的聊天记录数量")
+                event.stop_event()
+                return
+            
 
-                if count is None:
-                    yield event.plain_result("未传入要导入的聊天记录数量")
+            try:
+                unified_msg_origin = event.unified_msg_origin
+                db_id = self.get_unified_db_id(unified_msg_origin)
+                collection = self.database_manager.get_collection(db_id)
+            except Exception as e:
+                logger.error(f"获取群聊记录失败: {str(e)}")
+                yield event.plain_result("获取群聊记录失败，请检查日志")
+                event.stop_event()
+                return
+                
+
+            if collection is None:
+                yield event.plain_result("未找到指定群号的历史记录")
+                event.stop_event()
+                return
+
+            try:
+                # 调用API获取群聊历史消息
+                messages=await self.load_history_from_aiocqhttp(event, count, seq, event.get_group_id())
+                if not messages:
+                    yield event.plain_result("未找到指定群号的历史记录")
                     event.stop_event()
                     return
+                myid=event.get_self_id()
 
-                payloads = {
-                    "group_id": event.get_group_id(),
-                    "message_seq": seq,
-                    "count": count,
-                    "reverseOrder": False
-                }
-
-                # 调用API获取群聊历史消息
-                ret = await client.api.call_action("get_group_msg_history", **payloads)
-
-                myid_post = await client.api.call_action("get_login_info", **payloads)
-                myid = myid_post.get("user_id", {})
-
-                # 处理消息历史记录，对其格式化
-                messages = ret.get("messages", [])
-                chat_list = []
-                message_id_list = []
-                for msg in messages:
-                    # 解析发送者信息
-                    sender = msg.get('sender', {})
-                    message_id = msg['message_id']
-
-                    if myid == sender.get('user_id', ""):
-                        continue
-
-                    if collection.exists(message_id):
-                        continue
-                    # 提取所有文本内容（兼容多段多类型文本消息）
-                    message_text_chain = []
-                    for part in msg['message']:
-                        if part['type'] == 'text':
-                            message_text_chain.append(part['data']['text'].strip("\t\n\r"))
-
-                    message_text=" ".join(message_text_chain)
-
-                    # 检查message_text的第一个字符是否为"/"，如果是则跳过当前循环（用于跳过用户调用Bot的命令）
-                    if (not message_text) or message_text.startswith("/") or len(message_text.strip())<3:
-                        continue
-                    chat_list.append(message_text)
-                    message_id_list.append(message_id)
-
-
+                chat_list,message_id_list = await self.format_history_from_aiocqhttp(messages, myid, collection)
+                logger.info(f"成功读取{len(chat_list)}条群聊历史记录")
+                if not chat_list:
+                    yield event.plain_result("没有可导入的聊天记录")
+                    event.stop_event()
+                    return
+                
+            except Exception as e:
+                logger.error(f"获取群聊历史记录失败: {str(e)}")
+                yield event.plain_result("获取群聊历史记录失败，请检查日志")
+                event.stop_event()
+                return
+            
+            try:
                 # 获取embedding
-                logger.info(f"成功读取{len(chat_list)}条本群历史记录")
                 embeddings = await self.provider.get_embeddings_async(chat_list)
                 if len(embeddings) != len(chat_list):
                     logger.error(f"生成的embedding数量为{len(embeddings)}")
@@ -306,10 +387,80 @@ class QQArchaeology(Star):
                 logger.info(f"成功生成embeddings")
                 collection.add_list(message_id_list, embeddings)
 
-                yield event.plain_result(f"成功导入{len(chat_list)}条本群历史记录")
+                yield event.plain_result(f"成功导入{len(chat_list)}条群聊历史记录")
             except Exception as e:
-                logger.error(f"导入本群记录失败: {str(e)}")
-                yield event.plain_result("导入本群记录失败，请检查日志")
+                logger.error(f"导入群聊记录失败: {str(e)}")
+                yield event.plain_result(f"导入群聊记录失败，请检查日志")
+            
+        else:
+            yield event.plain_result("插件未成功启动")
+
+    @filter.permission_type(filter.PermissionType.ADMIN)
+    @cyber_archaeology.command("load_group_history", alias={'lgh'})
+    async def load_group_history_command(self, event: AstrMessageEvent,group_id:int=None, count: int = None, seq: int = 0):
+        """读取插件未安装前bot所保存的指定群聊的历史数据记录 示例：/ca load_group_history <群号:int> <读取消息条数:int> [初始消息序号:int]"""
+        if await self._init_attempt():
+            if count is None:
+                yield event.plain_result("未传入要导入的聊天记录数量")
+                event.stop_event()
+                return
+            
+            if group_id is None:
+                yield event.plain_result("未传入要导入的群号")
+                event.stop_event()
+                return
+            try:
+                unified_msg_origin = event.get_platform_name()+":"+"GroupMessage"+":"+str(group_id)
+                db_id = self.get_unified_db_id(unified_msg_origin)
+                collection = self.database_manager.get_collection(db_id)
+            except Exception as e:
+                logger.error(f"获取群聊记录失败: {str(e)}")
+                yield event.plain_result("获取群聊记录失败，请检查日志")
+                event.stop_event()
+                return
+
+            if collection is None:
+                yield event.plain_result("未找到指定群号的历史记录")
+                event.stop_event()
+                return
+
+
+            # 调用API获取群聊历史消息
+            try:
+                messages=await self.load_history_from_aiocqhttp(event, count, seq, group_id)
+                if not messages:
+                    yield event.plain_result("未找到指定群号的历史记录")
+                    event.stop_event()
+                    return
+                myid=event.get_self_id()
+
+                chat_list,message_id_list = await self.format_history_from_aiocqhttp(messages, myid, collection)
+                
+                logger.info(f"成功读取{len(chat_list)}条群聊历史记录")
+                if not chat_list:
+                    yield event.plain_result("没有可导入的聊天记录")
+                    event.stop_event()
+                    return
+                
+            except Exception as e:
+                logger.error(f"获取群聊历史记录失败: {str(e)}")
+                yield event.plain_result("获取群聊历史记录失败，请检查日志")
+                event.stop_event()
+                return
+                
+            try:
+                # 获取embedding
+                embeddings = await self.provider.get_embeddings_async(chat_list)
+                if len(embeddings) != len(chat_list):
+                    logger.error(f"生成的embedding数量为{len(embeddings)}")
+                    raise ValueError("读取的历史记录数量与生成的embedding数量不一致")
+                logger.info(f"成功生成embeddings")
+                collection.add_list(message_id_list, embeddings)
+
+                yield event.plain_result(f"成功导入{len(chat_list)}条群聊历史记录")
+            except Exception as e:
+                logger.error(f"导入群聊{group_id}记录失败: {str(e)}")
+                yield event.plain_result(f"导入群聊{group_id}记录失败，请检查日志")
         else:
             yield event.plain_result("插件未成功启动")
 

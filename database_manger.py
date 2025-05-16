@@ -5,7 +5,7 @@ import os
 import time
 from typing import Optional
 
-from pymilvus import utility, connections, MilvusClient, FieldSchema, DataType
+from pymilvus import utility, connections, MilvusClient, FieldSchema, DataType,Collection
 from pymilvus.exceptions import MilvusException
 from astrbot.api import logger
 
@@ -109,6 +109,7 @@ class DatabaseManager:
                 raise
 
     def get_collection(self, db_id: str) -> 'Milvuscollection':
+        """获取指定ID的数据库实例，如果没有就创建一个"""
         if not self.isconnected:
             self.connect()
         if db_id not in self.databases:
@@ -119,6 +120,26 @@ class DatabaseManager:
             })
             self.databases[db_id] = Milvuscollection(config, self.fields)
         return self.databases[db_id]
+    
+    def fetch_collection(self, group_id: str) -> 'Milvuscollection':
+        """根据群号找到对应的collection"""
+        if not self.isconnected:
+            self.connect()
+        try:
+            collections = utility.list_collections(using=self.connection_alias)
+            for collection_name in collections:
+                if group_id in collection_name:
+                    config = self.base_config.copy()
+                    config.update({
+                        "collection_name": collection_name,
+                        "connection_alias": self.connection_alias  # 传递连接别名
+                    })
+                    return Milvuscollection(config, self.fields)
+        except Exception as e:
+            logger.error(f"获取集合时发生错误: {str(e)}")
+            raise
+
+        return None
 
     def clear_collection(self, group_id: str) -> None:
         """清空名字包含db_id的所有collection"""
