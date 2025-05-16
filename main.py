@@ -270,8 +270,8 @@ class QQArchaeology(Star):
 
                 # 处理消息历史记录，对其格式化
                 messages = ret.get("messages", [])
-                chat_lines = {}
-                success_num=0
+                chat_list = []
+                message_id_list = []
                 for msg in messages:
                     # 解析发送者信息
                     sender = msg.get('sender', {})
@@ -293,19 +293,20 @@ class QQArchaeology(Star):
                     # 检查message_text的第一个字符是否为"/"，如果是则跳过当前循环（用于跳过用户调用Bot的命令）
                     if (not message_text) or message_text.startswith("/") or len(message_text.strip())<3:
                         continue
-                    chat_lines[message_id]=message_text
+                    chat_list.append(message_text)
+                    message_id_list.append(message_id)
 
 
-                    # 获取embedding
-                    embedding = await self.provider.get_embedding_async(message_text)
+                # 获取embedding
+                logger.info(f"成功读取{len(chat_list)}条本群历史记录")
+                embeddings = await self.provider.get_embeddings_async(chat_list)
+                if len(embeddings) != len(chat_list):
+                    logger.error(f"生成的embedding数量为{len(embeddings)}")
+                    raise ValueError("读取的历史记录数量与生成的embedding数量不一致")
+                logger.info(f"成功生成embeddings")
+                collection.add_list(message_id_list, embeddings)
 
-
-                    collection.add(message_id, embedding)
-                    success_num += 1
-                    if success_num%100==0:
-                        logger.info(f"已成功导入{success_num}条历史消息")
-
-                yield event.plain_result(f"成功导入{success_num}条本群历史记录")
+                yield event.plain_result(f"成功导入{len(chat_list)}条本群历史记录")
             except Exception as e:
                 logger.error(f"导入本群记录失败: {str(e)}")
                 yield event.plain_result("导入本群记录失败，请检查日志")
@@ -324,3 +325,18 @@ class QQArchaeology(Star):
         except Exception as e:
             self._isinited = False
             yield event.plain_result(f"启动失败，详情参见控制台")
+
+
+    @filter.permission_type(filter.PermissionType.ADMIN)
+    @cyber_archaeology.command("set_limit", alias={'set_k'})
+    async def set_limit(self, event: AstrMessageEvent, limit: int):
+        """设置搜索结果限制 示例：/ca set_limit 10"""
+        if not limit:
+            yield event.plain_result("请输入限制数量")
+            return
+        try:
+            self.config["top_k"] = limit
+            yield event.plain_result(f"搜索结果限制已设置为{limit}")
+        except Exception as e:
+            yield event.plain_result(f"设置失败，详情参见控制台")
+
