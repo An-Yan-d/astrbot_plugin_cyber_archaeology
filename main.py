@@ -59,17 +59,17 @@ class QQArchaeology(Star):
             logger.info(f"Embedding依赖插件调用成功，目前的provider为{self.provider.get_provider_name()}")
         except AttributeError as e:
             logger.error("未找到注册的embedding插件，请检查插件依赖")
-            raise RuntimeError("缺失embedding插件依赖") from e
+            raise
         except Exception as e:
             logger.error(f"初始化embedding服务时发生未知错误: {str(e)}", exc_info=True)
-            raise RuntimeError("初始化Embedding服务错误") from e
+            raise
 
         try:
             # 自动读取维度
             self.dim = await self.provider.get_dim_async()
             logger.info(f"读取到的向量维度: {self.dim}")
         except AttributeError as e:
-            logger.error("Embedding服务缺少get_dim_async()方法")
+            logger.error(f"Embedding服务缺少get_dim_async()方法")
             raise
         except Exception as e:
             logger.error(f"配置数据库参数时发生错误: {str(e)}", exc_info=True)
