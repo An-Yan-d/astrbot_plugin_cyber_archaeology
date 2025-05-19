@@ -42,7 +42,7 @@
       "top_k": {
         "type": "int",
         "description": "返回结果数量",
-        "default": 5
+        "default": 3
       }
     }
   }

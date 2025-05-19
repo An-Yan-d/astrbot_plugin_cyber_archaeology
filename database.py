@@ -91,11 +91,14 @@ class Milvuscollection(Database):
 
     def add(self, message_id: int, embedding: List[float]) -> None:
         # 构造插入数据
+        self.add_list([message_id], [embedding])
+    
+    def add_list(self, message_ids: List[int], embeddings: List[List[float]]) -> None:
+        # 构造插入数据
         data = [
-            [message_id],
-            [embedding]
+            message_ids,
+            embeddings
         ]
-
         # 执行插入操作
         self.collection.insert(data)
         self.collection.flush()
