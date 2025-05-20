@@ -303,7 +303,7 @@ class QQArchaeology(Star):
             sender = msg.get('sender', {})
             message_id = msg['message_id']
 
-            if myid == sender.get('user_id', ""):
+            if int(myid) == sender.get('user_id', ""):
                 continue
 
             if collection.exists(message_id):
