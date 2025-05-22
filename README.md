@@ -44,7 +44,7 @@ astrbot插件市场搜索astrbot_plugin_cyber_archaeology，点击安装，等�
 
 ### 高级功能
 ```bash
-批量导入历史消息
+批量导入历史消息(管理员权限)
 /ca load_history <导入条数> [起始消息序号]
 
 示例：导入最近100条历史消息
@@ -52,6 +52,17 @@ astrbot插件市场搜索astrbot_plugin_cyber_archaeology，点击安装，等�
 
 示例：从第500条消息开始导入200条
 /ca load_history 200 500
+```
+
+```bash
+批量导入历史消息(管理员权限)
+/ca load_group_history <群号> <导入条数> [起始消息序号]
+
+示例：导入最近100条历史消息
+/ca load_group_history 100
+
+示例：从第500条消息开始导入200条
+/ca load_group_history 200 500
 ```
 
 ## 🧠 实现原理
