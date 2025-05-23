@@ -303,7 +303,7 @@ class QQArchaeology(Star):
             sender = msg.get('sender', {})
             message_id = msg['message_id']
 
-            if myid == sender.get('user_id', ""):
+            if int(myid) == sender.get('user_id', ""):
                 continue
 
             if collection.exists(message_id):
@@ -487,6 +487,7 @@ class QQArchaeology(Star):
             return
         try:
             self.config["top_k"] = limit
+            self.config.save_config()
             yield event.plain_result(f"搜索结果限制已设置为{limit}")
         except Exception as e:
             yield event.plain_result(f"设置失败，详情参见控制台")
