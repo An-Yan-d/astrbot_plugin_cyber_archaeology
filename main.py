@@ -491,3 +491,13 @@ class QQArchaeology(Star):
         except Exception as e:
             yield event.plain_result(f"设置失败，详情参见控制台")
 
+
+    @filter.permission_type(filter.PermissionType.ADMIN)
+    @cyber_archaeology.command("list", alias={'ls'})
+    async def list_store(self, event: AstrMessageEvent):
+        """展示目前记录的群聊列表 示例：/ca ls"""
+        try:
+            yield event.plain_result(str(self.database_manager))
+        except Exception as e:
+            yield event.plain_result(f"列出存储信息失败，详情参见控制台")
+

@@ -34,7 +34,7 @@ class DatabaseManager:
         self.client: Optional[MilvusClient] = None  # lite模式专用client
         self.__initialized = True
         self.isconnected=False
-        self.connection_alias = "lite" if base_config.get("islite", True) else "server"
+        self.connection_alias = "ca_lite" if base_config.get("islite", True) else "ca_server"
 
         self.connect()
 
@@ -96,7 +96,7 @@ class DatabaseManager:
     def disconnect(self) -> None:
         """安全关闭所有连接"""
         if self.isconnected:
-            alias = "lite" if self.base_config.get("islite", True) else "server"
+            alias = "ca_lite" if self.base_config.get("islite", True) else "ca_server"
             try:
                 connections.disconnect(alias)
                 if self.client:
@@ -140,6 +140,33 @@ class DatabaseManager:
             raise
 
         return None
+    
+    def __str__(self) -> str:
+        """返回当前数据库实例的字符串表示"""
+        lines= []
+        group_model={}
+        try:
+            # lines.append(f"DatabaseManager(isconnected={self.isconnected}.self.alias={self.connection_alias}):")
+            collections = utility.list_collections(using=self.connection_alias)
+            for collection_name in collections:
+                collection = Collection(collection_name, using=self.connection_alias)
+                parts=collection_name.split("_")
+                group_id = parts[-1]
+                model_info="\t"+"_".join(parts[0:-4])+"\t"+str(collection.num_entities)
+                if group_id not in group_model:
+                    group_model[group_id]=[model_info]
+                else:
+                    group_model[group_id].append(model_info)
+            for group_id, model_ids in group_model.items():
+                model_id = "\n\r".join(model_ids)
+                lines.append(f"群 {group_id}:")
+                lines.append(model_id)
+            return "\r\n".join(lines)
+        except Exception as e:
+            logger.error(f"获取连接信息出现错误: {str(e)}")
+            raise
+        
+
 
     def clear_collection(self, group_id: str) -> None:
         """清空名字包含db_id的所有collection"""
