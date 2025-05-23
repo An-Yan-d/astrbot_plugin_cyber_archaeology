@@ -253,17 +253,23 @@ class QQArchaeology(Star):
 
     @filter.permission_type(filter.PermissionType.ADMIN)
     @cyber_archaeology.command("clear", alias={'清空本群记录'})
-    async def clear_current_command(self, event: AstrMessageEvent):
-        """清空当前群聊记录 示例：/ca clear"""
+    async def clear_current_command(self, event: AstrMessageEvent, group_id:int=None):
+        """清空当前群聊记录 示例：/ca clear [群号:int]"""
         if await self._init_attempt():
             try:
-                unified_msg_origin = event.unified_msg_origin
-                self.database_manager.clear_collection(re.sub(r'[^a-zA-Z0-9]', '_', unified_msg_origin))
-                yield event.plain_result("本群历史记录已清空")
+                if group_id is None:
+                    unified_msg_origin = event.unified_msg_origin
+                else:
+                    unified_msg_origin = event.get_platform_name()+":"+"GroupMessage"+":"+str(group_id)
+                db_id = self.get_unified_db_id(unified_msg_origin)
+                self.database_manager.clear_collection(db_id)
+
+                group_id=unified_msg_origin.split(":")[-1]
+                yield event.plain_result(f"清空群{group_id}记录成功")
             except Exception as e:
                 logger.error(f"清空本群记录失败: {str(e)}")
                 yield event.plain_result("清空操作失败，请检查日志")
-                raise
+                return
         else:
             yield event.plain_result("插件未成功启动")
 
@@ -303,7 +309,7 @@ class QQArchaeology(Star):
             sender = msg.get('sender', {})
             message_id = msg['message_id']
 
-            if myid == sender.get('user_id', ""):
+            if int(myid) == sender.get('user_id', ""):
                 continue
 
             if collection.exists(message_id):
@@ -487,6 +493,7 @@ class QQArchaeology(Star):
             return
         try:
             self.config["top_k"] = limit
+            self.config.save_config()
             yield event.plain_result(f"搜索结果限制已设置为{limit}")
         except Exception as e:
             yield event.plain_result(f"设置失败，详情参见控制台")

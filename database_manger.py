@@ -168,19 +168,14 @@ class DatabaseManager:
         
 
 
-    def clear_collection(self, group_id: str) -> None:
+    def clear_collection(self, db_id: str) -> None:
         """清空名字包含db_id的所有collection"""
         if not self.isconnected:
             self.connect()
-
         try:
-            collections = utility.list_collections(using=self.connection_alias)
-            for collection_name in collections:
-                if group_id in collection_name:
-                    if collection_name in self.databases:
-                        del self.databases[collection_name]
-                    utility.drop_collection(collection_name,using=self.connection_alias)
-                    logger.info(f"已删除集合: {collection_name}")
+            utility.drop_collection(db_id,using=self.connection_alias)
+            del self.databases[db_id]
+            logger.info(f"已删除集合: {db_id}")
         except Exception as e:
             logger.error(f"删除集合时发生错误: {str(e)}")
             raise
