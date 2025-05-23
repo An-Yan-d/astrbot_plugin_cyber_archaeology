@@ -26,6 +26,7 @@ class QQArchaeology(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
         self.context=context
+        self.all_config = config
         self.config = config["plugin_conf"]
         self.database_config=config["Milvus"]
 
@@ -485,7 +486,7 @@ class QQArchaeology(Star):
 
 
     @filter.permission_type(filter.PermissionType.ADMIN)
-    @cyber_archaeology.command("set_limit", alias={'set_k'})
+    @cyber_archaeology.command("set_limit", alias={'sk','sl'})
     async def set_limit(self, event: AstrMessageEvent, limit: int):
         """设置搜索结果限制 示例：/ca set_limit 10"""
         if not limit:
@@ -493,9 +494,10 @@ class QQArchaeology(Star):
             return
         try:
             self.config["top_k"] = limit
-            self.config.save_config()
+            self.all_config.save_config()
             yield event.plain_result(f"搜索结果限制已设置为{limit}")
         except Exception as e:
+            logger.error(f"设置搜索结果限制失败: {str(e)}")
             yield event.plain_result(f"设置失败，详情参见控制台")
 
 
